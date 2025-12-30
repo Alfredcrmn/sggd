@@ -1,35 +1,51 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Layout from "./components/Layout";
+
+// Importamos las páginas
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+// Asegúrate de tener estos archivos creados (aunque sea con contenido básico)
+// Si alguno no existe, coméntalo temporalmente para que no de error.
+import CreateProcess from "./pages/CreateProcess";
+import ProcessList from "./pages/ProcessList";
+import ProcessDetail from "./pages/ProcessDetail";
+import AdminPanel from "./pages/AdminPanel";
+
+// Componente para proteger rutas (si no hay usuario, manda al Login)
+const RutaPrivada = () => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div style={{display:'flex', justifyContent:'center', marginTop:'50px'}}>Cargando...</div>;
+  if (!user) return <Navigate to="/login" />;
+  
+  // Si está logueado, renderiza el Layout (que contiene el Outlet con la página)
+  return <Layout />;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Ruta Pública: Login */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Rutas Privadas: Todas viven dentro del Layout */}
+          <Route element={<RutaPrivada />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/create" element={<CreateProcess />} />
+            <Route path="/processes" element={<ProcessList />} />
+            <Route path="/process/:id" element={<ProcessDetail />} />
+            <Route path="/admin" element={<AdminPanel />} />
+          </Route>
+
+          {/* Cualquier ruta desconocida te manda al inicio */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

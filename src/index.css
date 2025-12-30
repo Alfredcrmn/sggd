@@ -1,68 +1,100 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* --- PALETA DE MARCA FERRETODO --- */
+  --color-brand-primary: #E95D05;       /* Naranja vibrante */
+  --color-brand-hover: #CC4F00;         /* Naranja oscuro (hover) */
+  --color-brand-light: #FFF1E8;         /* Naranja pálido (fondos) */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* --- NEUTROS & ESTRUCTURA --- */
+  --color-dark-bg: #1C1C1C;             /* Negro suave (Sidebar) */
+  --color-canvas-bg: #F8FAFC;           /* Gris pizarra muy claro (Fondo App) */
+  --color-surface: #FFFFFF;             /* Blanco (Tarjetas) */
+  --color-border: #E2E8F0;              /* Bordes sutiles */
+  
+  --color-text-main: #1E293B;           /* Texto principal */
+  --color-text-muted: #64748B;          /* Texto secundario */
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* --- ESTADOS --- */
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-info: #3B82F6;
+  --status-error: #EF4444;
+
+  /* --- VARIABLES DE DISEÑO --- */
+  --radius-lg: 12px;     /* Tarjetas */
+  --radius-md: 8px;      /* Botones */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --font-main: 'Inter', system-ui, sans-serif;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+/* Reset Básico */
+* { box-sizing: border-box; }
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  font-family: var(--font-main);
+  background-color: var(--color-canvas-bg);
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* --- CLASES DE UTILIDAD (UI KIT) --- */
+
+/* Títulos */
+h1, h2, h3 { margin: 0; font-weight: 600; color: var(--color-dark-bg); }
+h1 { font-size: 1.875rem; } /* 30px */
+h2 { font-size: 1.5rem; }   /* 24px */
+h3 { font-size: 1.125rem; } /* 18px */
+
+p { margin: 0; color: var(--color-text-muted); line-height: 1.5; }
+
+/* Tarjetas (Cards) */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Botones Base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
   font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  border: none;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  text-decoration: none;
+  gap: 8px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.btn-primary {
+  background-color: var(--color-brand-primary);
+  color: white;
 }
+.btn-primary:hover { background-color: var(--color-brand-hover); }
+
+.btn-secondary {
+  background-color: white;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-main);
+}
+.btn-secondary:hover { border-color: var(--color-text-muted); background-color: #f1f5f9; }
+
+/* Grid Systems */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+
+/* Utilidades de Texto */
+.text-sm { font-size: 0.875rem; }
+.text-orange { color: var(--color-brand-primary); }

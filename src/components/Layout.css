@@ -1,0 +1,140 @@
+/* src/components/Layout.css */
+
+/* Contenedor principal: Flexbox para poner Sidebar al lado del Contenido */
+.layout-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden; /* Evita scrolls dobles en la ventana */
+}
+
+/* --- SIDEBAR (Barra Lateral) --- */
+.sidebar {
+  width: 260px;
+  background-color: var(--color-dark-bg);
+  color: var(--color-surface); /* Texto blanco/claro */
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border-right: 1px solid #333;
+  flex-shrink: 0; /* Que no se encoja nunca */
+  transition: all 0.3s ease;
+}
+
+.brand-area {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.brand-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Navegación */
+.nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1; /* Empuja el footer hacia abajo */
+  overflow-y: auto; /* Scroll si hay muchos items */
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  color: #94a3b8; /* Gris azulado para items inactivos */
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+/* Estado Activo (Cuando estás en esa página) */
+.nav-item.active {
+  background-color: var(--color-brand-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(233, 93, 5, 0.25); /* Sombra naranja suave */
+}
+
+.nav-icon {
+  margin-right: 12px;
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+}
+
+/* Footer del Sidebar */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+}
+
+.user-info {
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  color: #94a3b8;
+}
+
+.user-info strong {
+  color: #fff;
+  display: block;
+  margin-top: 2px;
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: transparent;
+  border: 1px solid #ef4444; /* Borde rojo */
+  color: #ef4444;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* --- MAIN CONTENT (Área de Trabajo Derecha) --- */
+.main-content {
+  flex: 1;
+  overflow-y: auto; /* El scroll ocurre aquí, no en toda la página */
+  padding: 2rem 3rem;
+  background-color: var(--color-canvas-bg);
+  position: relative;
+}
+
+/* Ajuste para pantallas pequeñas (opcional por ahora) */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none; /* Ocultar sidebar en móviles por ahora */
+  }
+  .main-content {
+    padding: 1rem;
+  }
+}
