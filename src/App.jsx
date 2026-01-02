@@ -12,6 +12,7 @@ import CreateReturn from "./pages/CreateReturn";
 import ProcessList from "./pages/ProcessList";
 import ProcessDetail from "./pages/ProcessDetail";
 import AdminPanel from "./pages/AdminPanel";
+import MobileUpload from "./pages/MobileUpload";
 
 // Componente para proteger rutas (si no hay usuario, manda al Login)
 const RutaPrivada = () => {
@@ -40,6 +41,7 @@ function App() {
             <Route path="/processes" element={<ProcessList />} />
             <Route path="/process/:id" element={<ProcessDetail />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/mobile-upload/:id" element={<MobileUpload />} />
           </Route>
 
           {/* Cualquier ruta desconocida te manda al inicio */}
