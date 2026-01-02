@@ -23,23 +23,35 @@ const Layout = () => {
         </div>
         
         <nav className="nav-links">
-          {/* NavLink añade la clase "active" automáticamente */}
+          {/* Dashboard Principal */}
           <NavLink to="/" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
             <span className="nav-icon">📊</span> Dashboard
           </NavLink>
           
-          <NavLink to="/create" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">➕</span> Nuevo Proceso
+          {/* Separador visual para agrupar las acciones de "Crear" */}
+          <div style={{ margin: '10px 0 5px 15px', fontSize: '0.75rem', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            Registrar
+          </div>
+
+          {/* Botón de Garantías */}
+          <NavLink to="/create-warranty" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <span className="nav-icon">🛡️</span> Garantía
           </NavLink>
           
-          <NavLink to="/processes" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">🔎</span> Historial
+          {/* Botón de Devoluciones */}
+          <NavLink to="/create-return" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <span className="nav-icon">↩️</span> Devolución
           </NavLink>
           
           <div style={{ height: '1px', background: '#333', margin: '10px 0' }}></div>
 
+          {/* Historial y Admin */}
+          <NavLink to="/processes" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <span className="nav-icon">🔎</span> Historial
+          </NavLink>
+
           <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">🛡️</span> Admin
+            <span className="nav-icon">⚙️</span> Admin
           </NavLink>
         </nav>
 

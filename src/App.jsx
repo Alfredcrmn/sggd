@@ -7,7 +7,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 // Asegúrate de tener estos archivos creados (aunque sea con contenido básico)
 // Si alguno no existe, coméntalo temporalmente para que no de error.
-import CreateProcess from "./pages/CreateProcess";
+import CreateWarranty from "./pages/CreateWarranty";
+import CreateReturn from "./pages/CreateReturn";
 import ProcessList from "./pages/ProcessList";
 import ProcessDetail from "./pages/ProcessDetail";
 import AdminPanel from "./pages/AdminPanel";
@@ -34,7 +35,8 @@ function App() {
           {/* Rutas Privadas: Todas viven dentro del Layout */}
           <Route element={<RutaPrivada />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/create" element={<CreateProcess />} />
+            <Route path="/create-warranty" element={<CreateWarranty />} />
+            <Route path="/create-return" element={<CreateReturn />} />
             <Route path="/processes" element={<ProcessList />} />
             <Route path="/process/:id" element={<ProcessDetail />} />
             <Route path="/admin" element={<AdminPanel />} />

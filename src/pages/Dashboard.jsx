@@ -1,105 +1,143 @@
-import StatCard from "../components/dashboard/StatCard";
-import ActionButton from "../components/dashboard/ActionButton";
+import { useEffect, useState } from "react";
+import { supabase } from "../supabase/client";
 import { useAuth } from "../context/AuthContext";
+import ActionButton from "../components/dashboard/ActionButton"; // Asegúrate de que la ruta sea correcta
+import StatCard from "../components/dashboard/StatCard"; // Si tienes un componente para las tarjetas, úsalo, si no, usa el div directo.
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const username = user?.user_metadata?.username || "Usuario";
+  const [stats, setStats] = useState({
+    garantias: 0,
+    devoluciones: 0,
+    total: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // 1. Contar Garantías Activas (todo lo que no esté 'cerrado')
+        const { count: countGarantias } = await supabase
+          .from('garantias')
+          .select('*', { count: 'exact', head: true })
+          .neq('estatus', 'cerrado'); // neq = Not Equal (No igual a cerrado)
+
+        // 2. Contar Devoluciones Activas
+        const { count: countDevoluciones } = await supabase
+          .from('devoluciones')
+          .select('*', { count: 'exact', head: true })
+          .neq('estatus', 'cerrado');
+
+        setStats({
+          garantias: countGarantias || 0,
+          devoluciones: countDevoluciones || 0,
+          total: (countGarantias || 0) + (countDevoluciones || 0)
+        });
+
+      } catch (error) {
+        console.error("Error cargando estadísticas:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      
-      {/* 1. ENCABEZADO DE BIENVENIDA */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1>Hola, {username} 👋</h1>
-        <p>Bienvenido al Sistema de Gestión de Garantías y Devoluciones.</p>
-      </div>
+    <div>
+      <header style={{ marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: '700', color: 'var(--color-text-main)' }}>
+          Panel de Control
+        </h1>
+        <p style={{ color: 'var(--color-text-muted)' }}>
+          Bienvenido, {user?.user_metadata?.username || "Usuario"}
+        </p>
+      </header>
 
-      {/* 2. ACCIONES PRINCIPALES (Lo que más usarán) */}
-      <h3 style={{ marginBottom: '1rem' }}>Acciones Rápidas</h3>
-      <div className="grid-2" style={{ marginBottom: '3rem' }}>
-        <ActionButton 
-          to="/create?type=garantia"
-          icon="🛡️"
-          title="Nueva Garantía"
-          description="Registrar recepción de producto por falla o defecto."
-        />
-        <ActionButton 
-          to="/create?type=devolucion"
-          icon="↩️"
-          title="Nueva Devolución"
-          description="Registrar retorno de mercancía al proveedor."
-        />
-      </div>
+      {/* SECCIÓN DE TARJETAS DE ESTADÍSTICAS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+        
+        {/* Tarjeta 1: Total Activos */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: '600' }}>
+            PROCESOS ACTIVOS
+          </div>
+          <div style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--color-brand-primary)' }}>
+            {loading ? "..." : stats.total}
+          </div>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+            Pendientes de solución
+          </div>
+        </div>
 
-      {/* 3. RESUMEN DE ESTADO (KPIs) */}
-      <h3 style={{ marginBottom: '1rem' }}>Resumen Operativo</h3>
-      <div className="grid-4" style={{ marginBottom: '3rem' }}>
-        <StatCard 
-          title="Garantías Activas" 
-          value="12" 
-          icon="🔧" 
-          color="#3B82F6" 
-        />
-        <StatCard 
-          title="Devoluciones Activas" 
-          value="5" 
-          icon="📦" 
-          color="#8B5CF6" 
-        />
-        <StatCard 
-          title="Por Validar (Cierres)" 
-          value="3" 
-          icon="⚠️" 
-          color="#F59E0B" 
-        />
-        <StatCard 
-          title="Completados este mes" 
-          value="45" 
-          icon="✅" 
-          color="#10B981" 
-        />
-      </div>
+        {/* Tarjeta 2: Garantías */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: '600' }}>
+            GARANTÍAS
+          </div>
+          <div style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--color-text-main)' }}>
+            {loading ? "..." : stats.garantias}
+          </div>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+            En taller o proveedor
+          </div>
+        </div>
 
-      {/* 4. LISTA DE ACTIVIDAD RECIENTE (Placeholder) */}
-      <h3 style={{ marginBottom: '1rem' }}>Actividad Reciente</h3>
-      <div className="card">
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
-              <th style={{ padding: '10px' }}>Folio</th>
-              <th style={{ padding: '10px' }}>Tipo</th>
-              <th style={{ padding: '10px' }}>Producto</th>
-              <th style={{ padding: '10px' }}>Estado</th>
-              <th style={{ padding: '10px' }}>Fecha</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Fila de ejemplo estática */}
-            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: '12px', fontWeight: '600' }}>FCG-45</td>
-              <td style={{ padding: '12px' }}><span style={{ padding: '4px 8px', borderRadius: '4px', background: '#DBEAFE', color: '#1E40AF', fontSize: '0.8rem' }}>Garantía</span></td>
-              <td style={{ padding: '12px' }}>Taladro Percutor 1/2"</td>
-              <td style={{ padding: '12px' }}>Enviado a Prov.</td>
-              <td style={{ padding: '12px', color: '#64748B' }}>Hoy, 10:30 AM</td>
-            </tr>
-            {/* Otra fila de ejemplo */}
-            <tr>
-              <td style={{ padding: '12px', fontWeight: '600' }}>FBD-12</td>
-              <td style={{ padding: '12px' }}><span style={{ padding: '4px 8px', borderRadius: '4px', background: '#F3E8FF', color: '#6B21A8', fontSize: '0.8rem' }}>Devolución</span></td>
-              <td style={{ padding: '12px' }}>Juego de Llaves Allen</td>
-              <td style={{ padding: '12px' }}>Pendiente Entrega</td>
-              <td style={{ padding: '12px', color: '#64748B' }}>Ayer, 04:15 PM</td>
-            </tr>
-          </tbody>
-        </table>
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-            <a href="/processes" className="btn btn-secondary text-sm">Ver todo el historial</a>
+        {/* Tarjeta 3: Devoluciones */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: '600' }}>
+            DEVOLUCIONES
+          </div>
+          <div style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--color-text-main)' }}>
+            {loading ? "..." : stats.devoluciones}
+          </div>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+            Por validar o abonar
+          </div>
         </div>
       </div>
 
+      {/* SECCIÓN DE ACCIONES RÁPIDAS */}
+      <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--color-text-main)' }}>
+        Acciones Rápidas
+      </h2>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
+        
+        <ActionButton 
+          to="/create-warranty" 
+          icon="🛡️" 
+          title="Nueva Garantía" 
+          description="Registrar equipo fallado" 
+        />
+
+        <ActionButton 
+          to="/create-return" 
+          icon="↩️" 
+          title="Nueva Devolución" 
+          description="Retorno de mercancía" 
+        />
+
+        <ActionButton 
+          to="/processes" 
+          icon="🔎" 
+          title="Buscar Folio" 
+          description="Ver historial completo" 
+        />
+
+      </div>
     </div>
   );
+};
+
+// Estilos rápidos en línea (puedes moverlos a CSS si prefieres)
+const cardStyle = {
+  background: 'white',
+  padding: '1.5rem',
+  borderRadius: '12px',
+  border: '1px solid var(--color-border)',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
 };
 
 export default Dashboard;
