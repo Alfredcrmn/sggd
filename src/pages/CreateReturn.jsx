@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase/client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import QuickQRUpload from "../components/QuickQRupload";
+import QuickQRUpload from "../components/QuickQRUpload"; 
 
 const CreateReturn = () => {
   const { user } = useAuth();
@@ -20,6 +20,7 @@ const CreateReturn = () => {
   const [formData, setFormData] = useState({
     sucursal_id: "",
     proveedor_id: "",
+    recibido_por_proveedor_nombre: "", // <--- NUEVO CAMPO
     producto_nombre: "",
     producto_clave: "",
     factura_numero: "",
@@ -55,12 +56,13 @@ const CreateReturn = () => {
           sucursal_id: formData.sucursal_id,
           solicitado_por_id: user.id,
           proveedor_id: formData.proveedor_id,
+          recibido_por_proveedor_nombre: formData.recibido_por_proveedor_nombre, // <--- GUARDAR CAMPO
           producto_nombre: formData.producto_nombre,
           producto_clave: formData.producto_clave,
           factura_numero: formData.factura_numero,
           factura_valor: formData.factura_valor || 0,
           razon_devolucion: razonFinal,
-          evidencia_entrega_url: evidenciaUrl, // <--- Guardar Foto
+          evidencia_recepcion_url: evidenciaUrl, 
           estatus: 'activo',
           tipo_resolucion: 'pendiente'
         }
@@ -103,12 +105,23 @@ const CreateReturn = () => {
                     <input required name="producto_nombre" className="form-input" onChange={handleChange} />
                 </div>
                 <div className="form-group">
-                    <label className="form-label">Proveedor *</label>
+                    <label className="form-label">Proveedor (Empresa) *</label>
                     <select name="proveedor_id" className="form-select" value={formData.proveedor_id} onChange={handleChange} required>
                         <option value="">Seleccione...</option>
                         {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                     </select>
                 </div>
+            </div>
+
+            {/* NUEVO INPUT PARA EL NOMBRE DEL REPRESENTANTE */}
+            <div className="form-group">
+                <label className="form-label">Nombre Nombre del Vendedor</label>
+                <input 
+                    name="recibido_por_proveedor_nombre" 
+                    className="form-input" 
+                    placeholder="Persona de contacto / Chofer"
+                    onChange={handleChange} 
+                />
             </div>
 
             <div className="form-row">

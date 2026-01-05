@@ -23,7 +23,6 @@ const ProcessDetail = () => {
   const [formValues, setFormValues] = useState({});
 
   // DEFINICIÓN DE LAS 5 ESTRUCTURAS (ESQUEMAS)
-  // Esto dicta qué campos se muestran y qué se guarda en el JSON
   const renderFormularioDinamico = () => {
     
     // 1. GARANTÍA - NOTA DE CRÉDITO
@@ -125,11 +124,8 @@ const ProcessDetail = () => {
   const handleConfirmarResolucion = async () => {
     if (!resolutionType) return alert("Selecciona una resolución.");
     
-    // Validación básica: Verificar que no haya campos vacíos en el formulario visible
-    // (Podrías hacerla más estricta si quieres)
     const valoresActuales = Object.values(formValues);
     if (valoresActuales.length === 0 && resolutionType === 'nota_credito') {
-        // Ejemplo de validación simple
         return alert("Por favor completa los campos requeridos.");
     }
 
@@ -138,41 +134,35 @@ const ProcessDetail = () => {
 
     const fechaHoy = new Date();
 
-    // 1. PREPARAMOS EL JSON (Guardamos todo lo que el usuario llenó en el form)
+    // 1. PREPARAMOS EL JSON
     const jsonDetalles = {
         ...formValues,
         resolucion_aplicada: resolutionType,
         fecha_registro_resolucion: fechaHoy
     };
 
-    // 2. PREPARAMOS LAS COLUMNAS SQL (Mapeo estricto del PDF a columnas reales)
+    // 2. PREPARAMOS LAS COLUMNAS SQL
     const updatePayload = {
         estatus: 'cerrado',
         tipo_resolucion: resolutionType,
         fecha_cierre: fechaHoy,
-        cerrado_por_id: user.id, // Tu ID de usuario
-        datos_resolucion: jsonDetalles // <--- AQUÍ VA EL JSON CON LOS DETALLES
+        cerrado_por_id: user.id, 
+        datos_resolucion: jsonDetalles 
     };
 
-    // LOGICA DE COLUMNAS ESPECÍFICAS (Según PDF)
+    // LOGICA DE COLUMNAS ESPECÍFICAS
     if (esGarantia) {
         if (resolutionType === 'nota_credito') {
             updatePayload.nc_fecha_notificacion = fechaHoy;
             updatePayload.nc_notificado_por = formValues.persona_notifica || "Sistema"; 
         } 
         else if (resolutionType === 'cambio_fisico' || resolutionType === 'reparacion') {
-            // "Fecha de la re-entrega... de regreso a Ferretodo"
             updatePayload.fecha_reingreso_tienda = fechaHoy;
-            // "Nombre del colaborador... que recibe el producto de vuelta" (Usamos tu ID)
-            updatePayload.recibido_por_tienda_id = user.id; // Asumiendo que existe esta columna o usas cerrado_por_id
-            
-            // "Fecha de la entrega final... al cliente"
+            updatePayload.recibido_de_proveedor_por_id = user.id; // CORREGIDO AL NUEVO NOMBRE
             updatePayload.fecha_entrega_cliente = fechaHoy;
-            // "Nombre del colaborador... que realiza la entrega"
             updatePayload.entregado_cliente_por_id = user.id; 
         }
     } else {
-        // Lógica similar para devoluciones si fuera necesario
         if (resolutionType === 'nota_credito') updatePayload.nc_fecha_notificacion = fechaHoy;
     }
 
@@ -187,10 +177,9 @@ const ProcessDetail = () => {
     }
   };
 
-  // Helper para mostrar JSON bonito en la vista de cerrado
+  // Helper para mostrar JSON bonito
   const renderDatosJson = (json) => {
       if (!json) return null;
-      // Filtramos claves internas para no mostrarlas sucio
       const keysToShow = Object.keys(json).filter(k => k !== 'resolucion_aplicada' && k !== 'fecha_registro_resolucion');
       
       return (
@@ -207,7 +196,6 @@ const ProcessDetail = () => {
   if (loading) return <div className="p-8 text-center">Cargando...</div>;
   if (!data) return <div className="p-8 text-center">No encontrado.</div>;
 
-  // OPCIONES RADIO
   const opciones = esGarantia 
     ? [
         { value: 'nota_credito', label: '📄 Nota de Crédito' },
@@ -240,6 +228,10 @@ const ProcessDetail = () => {
             <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '1rem', color: '#64748b' }}>📦 Información</h3>
             <DetailRow label="Producto" value={data.producto_nombre} />
             <DetailRow label="Proveedor" value={data.proveedores?.nombre} />
+            
+            {/* AQUÍ ESTÁ EL CAMPO NUEVO VISIBLE */}
+            <DetailRow label="Nombre del Vendedor" value={data.recibido_por_proveedor_nombre} />
+            
             <DetailRow label="Registrado por" value={data.usuario_responsable?.nombre_completo} />
             
             <div style={{ marginTop: '2rem' }}>
@@ -248,6 +240,23 @@ const ProcessDetail = () => {
                     {esGarantia ? data.defecto_descripcion : data.razon_devolucion}
                 </div>
             </div>
+
+            {/* FOTO EVIDENCIA */}
+            {data.evidencia_entrega_url && (
+                <div style={{ marginTop: '2rem' }}>
+                    <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem' }}>📸 Evidencia Adjunta</h4>
+                    <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                        <img 
+                            src={data.evidencia_entrega_url} 
+                            alt="Evidencia Inicial" 
+                            style={{ width: '100%', height: 'auto', display: 'block' }} 
+                        />
+                    </div>
+                    <a href={data.evidencia_entrega_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#3b82f6', display: 'block', marginTop: '5px' }}>
+                        Ver imagen original
+                    </a>
+                </div>
+            )}
         </div>
 
         {/* COLUMNA DERECHA */}
@@ -290,14 +299,13 @@ const ProcessDetail = () => {
                                         }}>
                                         <input type="radio" name="resolution" value={opcion.value} 
                                             checked={resolutionType === opcion.value}
-                                            onChange={(e) => { setResolutionType(e.target.value); setFormValues({}); }} // Limpiamos form al cambiar tipo
+                                            onChange={(e) => { setResolutionType(e.target.value); setFormValues({}); }} 
                                         />
                                         <span style={{ fontWeight: '500' }}>{opcion.label}</span>
                                     </label>
                                 ))}
                             </div>
 
-                            {/* AQUÍ SE INYECTAN LOS CAMPOS ESPECÍFICOS */}
                             {renderFormularioDinamico()}
 
                             <div style={{ display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
@@ -327,12 +335,6 @@ const InputDate = ({ label, ...props }) => (
         <input type="date" className="form-input" {...props} />
     </div>
 );
-const InputTextArea = ({ label, ...props }) => (
-    <div className="form-group">
-        <label className="form-label">{label}</label>
-        <textarea className="form-textarea" style={{minHeight:'80px'}} {...props} />
-    </div>
-);
 const DetailRow = ({ label, value }) => (
     <div style={{ marginBottom: '1rem' }}>
         <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '2px' }}>{label}</div>
@@ -342,7 +344,6 @@ const DetailRow = ({ label, value }) => (
 
 // ESTILOS
 const subFormStyle = { background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '10px' };
-const infoTextStyle = { fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem', fontStyle: 'italic' };
 const btnPrimaryStyle = { width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' };
 const btnConfirmStyle = { flex: 1, padding: '10px', background: 'var(--color-brand-primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const btnCancelStyle = { flex: 1, padding: '10px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };

@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase/client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import QuickQRUpload from "../components/QuickQRupload";
-
+import QuickQRUpload from "../components/QuickQRUpload"; 
 
 const CreateWarranty = () => {
   const { user } = useAuth();
@@ -11,8 +10,8 @@ const CreateWarranty = () => {
   const [loading, setLoading] = useState(false);
   
   // Lógica del QR
-  const [showQr, setShowQr] = useState(false); // Controla si se ve el QR
-  const [tempSessionId] = useState(crypto.randomUUID()); // ID único para la sesión de fotos
+  const [showQr, setShowQr] = useState(false); 
+  const [tempSessionId] = useState(crypto.randomUUID()); 
   const [evidenciaUrl, setEvidenciaUrl] = useState(null);
 
   const [sucursales, setSucursales] = useState([]);
@@ -21,6 +20,7 @@ const CreateWarranty = () => {
   const [formData, setFormData] = useState({
     sucursal_id: "",
     proveedor_id: "",
+    recibido_por_proveedor_nombre: "", // <--- NUEVO CAMPO
     producto_nombre: "",
     producto_clave: "",
     factura_numero: "",
@@ -57,12 +57,13 @@ const CreateWarranty = () => {
           sucursal_id: formData.sucursal_id,
           recibido_por_id: user.id,
           proveedor_id: formData.proveedor_id,
+          recibido_por_proveedor_nombre: formData.recibido_por_proveedor_nombre,
           producto_nombre: formData.producto_nombre,
           producto_clave: formData.producto_clave,
           factura_numero: formData.factura_numero,
           factura_valor: formData.factura_valor || 0,
           defecto_descripcion: descripcionFinal,
-          evidencia_entrega_url: evidenciaUrl, // <--- Guardamos la foto aquí
+          evidencia_entrega_url: evidenciaUrl, 
           estatus: 'activo',
           tipo_resolucion: 'pendiente'
         }
@@ -84,7 +85,6 @@ const CreateWarranty = () => {
         🛡️ Nueva Garantía
       </h2>
       
-      {/* LAYOUT DINÁMICO: Si showQr es true, usamos 2 columnas. Si no, 1 columna centrada */}
       <div style={{ 
           display: 'grid', 
           gridTemplateColumns: showQr ? '1fr 350px' : '1fr', 
@@ -92,7 +92,6 @@ const CreateWarranty = () => {
           transition: 'all 0.3s ease'
       }}>
         
-        {/* COLUMNA IZQUIERDA: FORMULARIO */}
         <form onSubmit={handleSubmit} className="form-section">
             
             <div className="form-group">
@@ -108,12 +107,23 @@ const CreateWarranty = () => {
                     <input required name="producto_nombre" className="form-input" onChange={handleChange} />
                 </div>
                 <div className="form-group">
-                    <label className="form-label">Proveedor *</label>
+                    <label className="form-label">Proveedor (Empresa) *</label>
                     <select name="proveedor_id" className="form-select" value={formData.proveedor_id} onChange={handleChange} required>
                         <option value="">Seleccione...</option>
                         {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                     </select>
                 </div>
+            </div>
+
+            {/* NUEVO INPUT PARA EL NOMBRE DEL REPRESENTANTE */}
+            <div className="form-group">
+                <label className="form-label">Nombre Nombre del Vendedor</label>
+                <input 
+                    name="recibido_por_proveedor_nombre" 
+                    className="form-input" 
+                    placeholder="Persona de contacto / Chofer / Representante"
+                    onChange={handleChange} 
+                />
             </div>
 
             <div className="form-row">
@@ -143,10 +153,7 @@ const CreateWarranty = () => {
                 </div>
             </div>
 
-            {/* BOTONES DE ACCIÓN */}
             <div style={{ marginTop: '2rem', display: 'flex', gap: '10px', flexDirection: 'column' }}>
-                
-                {/* BOTÓN PARA ABRIR QR */}
                 <button 
                     type="button" 
                     onClick={() => setShowQr(!showQr)}
@@ -173,7 +180,6 @@ const CreateWarranty = () => {
             </div>
         </form>
 
-        {/* COLUMNA DERECHA: QR (Solo visible si showQr es true) */}
         {showQr && (
             <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
                 <div style={{ position: 'sticky', top: '20px' }}>
