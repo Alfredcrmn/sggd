@@ -45,6 +45,12 @@ const CreateReturn = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!evidenciaUrl) {
+      alert("Es obligatorio adjuntar la evidencia de recibido por el proveedor.");
+      return;
+    }
+
     setLoading(true);
 
     const comentarioCliente = `\n[Cliente: ${formData.cliente_nombre} - Tel: ${formData.cliente_telefono}]`;
@@ -62,7 +68,7 @@ const CreateReturn = () => {
           factura_numero: formData.factura_numero,
           factura_valor: formData.factura_valor || 0,
           razon_devolucion: razonFinal,
-          evidencia_recepcion_url: evidenciaUrl, 
+          evidencia_entrega_url: evidenciaUrl, 
           estatus: 'activo',
           tipo_resolucion: 'pendiente'
         }

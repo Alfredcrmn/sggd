@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase/client";
-// CAMBIO IMPORTANTE: Usamos llaves {} para importar QRCodeCanvas
 import { QRCodeCanvas } from "qrcode.react";
 
 const QuickQRUpload = ({ sessionId, onUploadComplete }) => {

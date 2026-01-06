@@ -46,6 +46,12 @@ const CreateWarranty = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!evidenciaUrl) {
+      alert("Es obligatorio adjuntar la evidencia de recibido por el proveedor.");
+      return;
+    }
+    
     setLoading(true);
 
     const comentarioCliente = `\n[Cliente: ${formData.cliente_nombre} - Tel: ${formData.cliente_telefono}]`;
