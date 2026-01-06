@@ -42,6 +42,7 @@ function App() {
             <Route path="/process/:id" element={<ProcessDetail />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/mobile-upload/:id" element={<MobileUpload />} />
+            <Route path="/admin" element={<AdminPanel />} />
           </Route>
 
           {/* Cualquier ruta desconocida te manda al inicio */}
