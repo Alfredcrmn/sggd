@@ -153,3 +153,31 @@ p { margin: 0; color: var(--color-text-muted); line-height: 1.5; }
 @media (max-width: 600px) {
   .form-row { grid-template-columns: 1fr; }
 }
+
+/* --- COMPONENTES ADICIONALES (Badges) --- */
+.badge {
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-active { 
+  background: var(--color-brand-light); 
+  color: var(--color-brand-primary); 
+}
+
+.badge-closed { 
+  background: #d1fae5; 
+  color: var(--status-success); 
+}
+
+.badge-pending { 
+  background: #fef3c7; 
+  color: var(--status-warning); 
+}
+
+/* Iconos alineados en botones */
+.btn svg { width: 18px; height: 18px; }

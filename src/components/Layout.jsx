@@ -1,12 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabase/client";
-import "./Layout.css"; // Asegúrate de haber creado este archivo CSS también
+// 1. Importamos los íconos profesionales
+import { LayoutDashboard, ShieldCheck, Undo2, FileText, Settings, LogOut, UserCircle } from "lucide-react";
+import "./Layout.css"; 
 
 const Layout = () => {
   const { user } = useAuth();
-  
-  // Extraemos el nombre de usuario o usamos "Usuario" por defecto
   const username = user?.user_metadata?.username || "Usuario";
 
   const handleLogout = async () => {
@@ -18,49 +18,61 @@ const Layout = () => {
       {/* SIDEBAR OSCURO */}
       <aside className="sidebar">
         <div className="brand-area">
-          <h1 className="brand-title">FERRETODO <span style={{color: 'var(--color-brand-primary)'}}>.</span></h1>
+          {/* El punto naranja usa tu variable CSS */}
+          <h1 className="brand-title">FERRETODO<span className="text-orange">.</span></h1>
           <p className="brand-subtitle">Gestión de Garantías</p>
         </div>
         
         <nav className="nav-links">
-          {/* Dashboard Principal */}
+          {/* Dashboard */}
           <NavLink to="/" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">📊</span> Dashboard
+            <LayoutDashboard size={20} />
+            <span>Dashboard</span>
           </NavLink>
           
-          {/* Separador visual para agrupar las acciones de "Crear" */}
-          <div style={{ margin: '10px 0 5px 15px', fontSize: '0.75rem', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase' }}>
+          {/* Separador - Grupo "Registrar" */}
+          <div className="nav-group-label">
             Registrar
           </div>
 
-          {/* Botón de Garantías */}
+          {/* Garantía */}
           <NavLink to="/create-warranty" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">🛡️</span> Garantía
+            <ShieldCheck size={20} />
+            <span>Garantía</span>
           </NavLink>
           
-          {/* Botón de Devoluciones */}
+          {/* Devolución */}
           <NavLink to="/create-return" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">↩️</span> Devolución
+            <Undo2 size={20} />
+            <span>Devolución</span>
           </NavLink>
           
-          <div style={{ height: '1px', background: '#333', margin: '10px 0' }}></div>
+          <div className="nav-divider"></div>
 
-          {/* Historial y Admin */}
+          {/* Historial */}
           <NavLink to="/processes" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">🔎</span> Historial
+            <FileText size={20} />
+            <span>Historial</span>
           </NavLink>
 
+          {/* Admin */}
           <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <span className="nav-icon">⚙️</span> Admin
+            <Settings size={20} />
+            <span>Admin</span>
           </NavLink>
         </nav>
 
+        {/* Footer del Sidebar */}
         <div className="sidebar-footer">
           <div className="user-info">
-            <small>Logueado como:</small><br/>
-            <strong>{username}</strong>
+            <UserCircle size={32} className="user-avatar" />
+            <div className="user-text">
+                <small>Hola,</small>
+                <strong>{username}</strong>
+            </div>
           </div>
           <button onClick={handleLogout} className="logout-btn">
+            <LogOut size={16} />
             Cerrar Sesión
           </button>
         </div>

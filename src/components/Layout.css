@@ -1,140 +1,155 @@
-/* src/components/Layout.css */
-
-/* Contenedor principal: Flexbox para poner Sidebar al lado del Contenido */
+/* Contenedor principal: Sidebar fijo a la izquierda, contenido a la derecha */
 .layout-container {
   display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden; /* Evita scrolls dobles en la ventana */
+  min-height: 100vh;
 }
 
-/* --- SIDEBAR (Barra Lateral) --- */
+/* --- SIDEBAR --- */
 .sidebar {
   width: 260px;
-  background-color: var(--color-dark-bg);
-  color: var(--color-surface); /* Texto blanco/claro */
+  background-color: var(--color-dark-bg); /* #1C1C1C */
+  color: #e2e8f0;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
   border-right: 1px solid #333;
-  flex-shrink: 0; /* Que no se encoja nunca */
-  transition: all 0.3s ease;
+  z-index: 100;
 }
 
+/* Header de Marca */
 .brand-area {
-  margin-bottom: 2.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #333;
+  padding: 2rem 1.5rem;
 }
 
 .brand-title {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #fff;
-  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white; /* Blanco sobre fondo oscuro */
   letter-spacing: -0.5px;
+  margin: 0;
 }
 
 .brand-subtitle {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted); /* Gris */
   text-transform: uppercase;
   letter-spacing: 1px;
+  margin-top: 4px;
 }
 
 /* Navegación */
 .nav-links {
+  flex: 1;
+  padding: 0 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex: 1; /* Empuja el footer hacia abajo */
-  overflow-y: auto; /* Scroll si hay muchos items */
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
-  text-decoration: none;
-  color: #94a3b8; /* Gris azulado para items inactivos */
+  gap: 12px;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-  font-weight: 500;
+  color: var(--color-text-muted); /* Gris por defecto */
+  text-decoration: none;
   font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .nav-item:hover {
   background-color: rgba(255, 255, 255, 0.05);
-  color: #fff;
-}
-
-/* Estado Activo (Cuando estás en esa página) */
-.nav-item.active {
-  background-color: var(--color-brand-primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(233, 93, 5, 0.25); /* Sombra naranja suave */
 }
 
-.nav-icon {
-  margin-right: 12px;
-  font-size: 1.1rem;
-  width: 20px;
-  text-align: center;
+/* Estado Activo (Naranja Ferretodo) */
+.nav-item.active {
+  background-color: var(--color-brand-primary); /* #E95D05 */
+  color: white;
+  font-weight: 600;
+}
+
+/* Etiquetas y Divisores */
+.nav-group-label {
+  margin: 1.5rem 0 0.5rem 1rem;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nav-divider {
+  height: 1px;
+  background-color: #333;
+  margin: 1rem 0;
 }
 
 /* Footer del Sidebar */
 .sidebar-footer {
-  margin-top: auto;
-  padding-top: 1rem;
+  padding: 1.5rem;
   border-top: 1px solid #333;
+  background-color: rgba(0,0,0,0.2);
 }
 
 .user-info {
-  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 1rem;
-  color: #94a3b8;
 }
 
-.user-info strong {
-  color: #fff;
+.user-avatar {
+  color: var(--color-text-muted);
+}
+
+.user-text {
+  line-height: 1.2;
+}
+
+.user-text small {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.user-text strong {
   display: block;
-  margin-top: 2px;
+  color: white;
+  font-size: 0.9rem;
 }
 
 .logout-btn {
   width: 100%;
-  padding: 0.75rem;
   background: transparent;
-  border: 1px solid #ef4444; /* Borde rojo */
-  color: #ef4444;
+  border: 1px solid #475569;
+  color: #cbd5e1;
+  padding: 0.6rem;
   border-radius: var(--radius-md);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 0.85rem;
-  font-weight: 600;
   transition: all 0.2s;
 }
 
 .logout-btn:hover {
-  background: #ef4444;
+  background-color: #334155;
   color: white;
+  border-color: #64748b;
 }
 
-/* --- MAIN CONTENT (Área de Trabajo Derecha) --- */
+/* --- MAIN CONTENT --- */
 .main-content {
   flex: 1;
-  overflow-y: auto; /* El scroll ocurre aquí, no en toda la página */
-  padding: 2rem 3rem;
-  background-color: var(--color-canvas-bg);
-  position: relative;
-}
-
-/* Ajuste para pantallas pequeñas (opcional por ahora) */
-@media (max-width: 768px) {
-  .sidebar {
-    display: none; /* Ocultar sidebar en móviles por ahora */
-  }
-  .main-content {
-    padding: 1rem;
-  }
+  margin-left: 260px; /* Mismo ancho que el sidebar */
+  padding: 2rem;
+  background-color: var(--color-canvas-bg); /* #F8FAFC */
+  min-height: 100vh;
 }

@@ -3,156 +3,144 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabase/client";
 import { useAuth } from "../context/AuthContext";
 
+// Importamos el componente de formularios que acabamos de crear
+import ResolutionForms from "../components/ResolutionForms"; 
+
+import { 
+  ArrowLeft, 
+  ShieldCheck, 
+  Undo2, 
+  MapPin, 
+  User, 
+  Truck, 
+  CreditCard, 
+  FileText, 
+  CheckCircle2, 
+  Archive, 
+  AlertTriangle, 
+  ImageIcon, 
+  Maximize2, 
+  Phone, 
+  X, 
+  FileBadge, 
+  RefreshCcw, 
+  Wrench, 
+  Hash, 
+  Store, 
+  Calendar
+} from "lucide-react";
+
 const ProcessDetail = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   
-  const tipoTabla = searchParams.get("type") || "garantias";
-  const esGarantia = tipoTabla === "garantias";
+  const type = searchParams.get("type") || "garantias";
+  const tableName = type.endsWith('s') ? type : `${type}s`; 
+  const isGarantia = tableName === "garantias";
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null); // Rol del usuario actual
+  const [userRole, setUserRole] = useState(null);
 
-  // --- LÓGICA DE RESOLUCIÓN ---
+  // Estados de Resolución
   const [isResolving, setIsResolving] = useState(false);
   const [resolutionType, setResolutionType] = useState("");
   const [formValues, setFormValues] = useState({});
 
-  // DEFINICIÓN DE LAS 5 ESTRUCTURAS (ESQUEMAS) - INTACTO
-  const renderFormularioDinamico = () => {
-    
-    // 1. GARANTÍA - NOTA DE CRÉDITO
-    if (esGarantia && resolutionType === 'nota_credito') {
-        return (
-            <div style={subFormStyle}>
-                <InputText name="folio_nc" label="Folio Nota Crédito" onChange={handleInputChange} />
-                <InputText name="facturas_afectadas" label="Facturas / Notas afectadas" placeholder="Ej: F-2030, F-2035" onChange={handleInputChange} />
-                <InputDate name="fecha_notificacion" label="Fecha en que se le notificó al encargado de compras que se realizó una nota de crédito" onChange={handleInputChange} />
-                <InputText name="persona_notifica" label="Persona que notificó" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_aplicacion" label="Fecha en la que se aplicó la garantía" onChange={handleInputChange} />
-            </div>
-        );
-    }
+  // Estado del Modal de Evidencia
+  const [showImageModal, setShowImageModal] = useState(false);
 
-    // 2. GARANTÍA - CAMBIO FÍSICO
-    if (esGarantia && resolutionType === 'cambio_fisico') {
-        return (
-            <div style={subFormStyle}>
-                <InputText name="persona_recibe" label="Persona que recibe en surcursal" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_reingreso" label="Fecha en que el producto reingresó a sucursal" onChange={handleInputChange} />
-                <InputText name="persona_entrega" label="Persona que entrega al cliente" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_entrega" label="Fecha en que se entrega el producto de vuelta al cliente" onChange={handleInputChange} />
+  // Estados para datos procesados (limpios)
+  const [parsedDescription, setParsedDescription] = useState("");
+  const [parsedClient, setParsedClient] = useState({ name: "", phone: "" });
 
-            </div>
-        );
-    }
-
-    // 3. GARANTÍA - REPARACIÓN
-    if (esGarantia && resolutionType === 'reparacion') {
-        return (
-            <div style={subFormStyle}>
-                <InputText name="persona_recibe" label="Persona que recibe en surcursal" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_reingreso" label="Fecha en que el producto reingresó a sucursal" onChange={handleInputChange} />
-                <InputText name="persona_entrega" label="Persona que entrega al cliente" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_entrega" label="Fecha en que se entrega el producto de vuelta al cliente" onChange={handleInputChange} />
-            </div>
-        );
-    }
-
-    // 4. DEVOLUCIÓN - NOTA DE CRÉDITO
-    if (!esGarantia && resolutionType === 'nota_credito') {
-        return (
-            <div style={subFormStyle}>
-                <InputText name="folio_nc" label="Folio Nota Crédito" onChange={handleInputChange} />
-                <InputText name="facturas_afectadas" label="Facturas / Notas afectadas" placeholder="Ej: F-2030, F-2035" onChange={handleInputChange} />
-                <InputDate name="fecha_notificacion" label="Fecha en que se le notificó al encargado de compras que se realizó una nota de crédito" onChange={handleInputChange} />
-                <InputText name="persona_notifica" label="Persona que notificó" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_aplicacion" label="Fecha en la que se aplicó la garantía" onChange={handleInputChange} />
-            </div>
-        );
-    }
-
-    // 5. DEVOLUCIÓN - CAMBIO FÍSICO
-    if (!esGarantia && resolutionType === 'cambio_fisico') {
-        return (
-            <div style={subFormStyle}>
-                <InputText name="persona_recibe" label="Persona que recibe en surcursal" placeholder="Nombre del empleado" onChange={handleInputChange} />
-                <InputDate name="fecha_reingreso" label="Fecha en que el producto reingresó a sucursal" onChange={handleInputChange} />
-            </div>
-        );
-    }
-
-    return null;
-  };
-
-  // --- CARGA DE DATOS ---
   useEffect(() => {
-    const fetchDetail = async () => {
-      try {
-        const userColumn = esGarantia ? "recibido_por_id" : "solicitado_por_id";
-        const { data: record, error } = await supabase
-          .from(tipoTabla)
-          .select(`
+    fetchDetail();
+  }, [id, tableName]);
+
+  const fetchDetail = async () => {
+    try {
+      const userColumn = isGarantia ? "recibido_por_id" : "solicitado_por_id";
+      
+      const { data: record, error } = await supabase
+        .from(tableName)
+        .select(`
             *,
             sucursales ( nombre ),
             proveedores ( nombre ),
             perfiles:${userColumn} ( nombre_completo )
-          `)
-          .eq('id', id)
-          .single();
+        `)
+        .eq('id', id)
+        .single();
 
-        if (error) throw error;
-        setData({ ...record, usuario_responsable: record[userColumn] });
+      if (error) throw error;
+      
+      // --- LÓGICA DE PARSING (LIMPIEZA DE TEXTO) ---
+      const rawText = isGarantia ? record.defecto_descripcion : record.razon_devolucion;
+      let cleanDesc = rawText;
+      let clientName = record.cliente_nombre;
+      let clientPhone = record.cliente_telefono;
 
-        // Cargar Rol
-        if (user) {
-            const { data: perfil } = await supabase.from('perfiles').select('rol').eq('id', user.id).single();
-            if (perfil) setUserRole(perfil.rol);
-        }
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setLoading(false);
+      // Extraer datos del string si vienen pegados con formato [Cliente: ...]
+      if (rawText && rawText.includes('[Cliente:')) {
+          const parts = rawText.split('[Cliente:');
+          cleanDesc = parts[0].trim(); 
+
+          // Si no hay columnas dedicadas o están vacías, intentamos usar lo del texto
+          if (!clientName || !clientPhone) {
+              const infoPart = parts[1].replace(']', ''); 
+              const infoSplit = infoPart.split('- Tel:');
+              if (infoSplit.length >= 2) {
+                  clientName = clientName || infoSplit[0].trim();
+                  clientPhone = clientPhone || infoSplit[1].trim();
+              }
+          }
       }
-    };
-    fetchDetail();
-  }, [id, tipoTabla, esGarantia, user]);
+
+      setParsedDescription(cleanDesc);
+      setParsedClient({ name: clientName, phone: clientPhone });
+      
+      setData({ ...record, usuario_responsable: record.perfiles });
+
+      if (user) {
+          const { data: perfil } = await supabase.from('perfiles').select('rol').eq('id', user.id).single();
+          if (perfil) setUserRole(perfil.rol);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      navigate("/processes");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
   };
 
-  // --- LOGICA DE GUARDADO (CAJERO) Y CIERRE (ADMIN) ---
+  // --- LÓGICA DE CIERRE / GUARDADO ---
   const handleConfirmarResolucion = async () => {
     if (!resolutionType) return alert("Selecciona una resolución.");
     
-    // Validación de campos requeridos
+    // Validación básica de campos vacíos para Notas de Crédito
     const valoresActuales = Object.values(formValues);
     if (valoresActuales.length === 0 && resolutionType === 'nota_credito') {
         return alert("Por favor completa los campos requeridos.");
     }
 
-    // Diferenciar acción según rol
     const esAdmin = userRole === 'admin';
     const nuevoEstatus = esAdmin ? 'cerrado' : 'pendiente_validacion';
-    const mensajeConfirmacion = esAdmin 
-        ? `¿Confirmar y CERRAR caso como ${resolutionType.toUpperCase()}?`
-        : `¿Enviar solicitud de ${resolutionType.toUpperCase()} para VALIDACIÓN del Administrador?`;
-
-    const confirmar = window.confirm(mensajeConfirmacion);
-    if (!confirmar) return;
+    
+    if (!window.confirm(`¿Confirmar ${resolutionType.replace('_', ' ').toUpperCase()}?`)) return;
 
     const fechaHoy = new Date();
-
-    // Preparar JSON
     const jsonDetalles = {
         ...formValues,
         resolucion_aplicada: resolutionType,
         fecha_registro_resolucion: fechaHoy,
-        propuesto_por_id: user.id // Guardamos quién propuso la solución
+        propuesto_por_id: user.id
     };
 
     const updatePayload = {
@@ -161,228 +149,382 @@ const ProcessDetail = () => {
         datos_resolucion: jsonDetalles 
     };
 
-    // Si es ADMIN cerrando directamente, llenamos los campos finales
     if (esAdmin) {
         updatePayload.fecha_cierre = fechaHoy;
         updatePayload.cerrado_por_id = user.id;
-        updatePayload.validado_por_admin_id = user.id; // Se auto-valida
+        updatePayload.validado_por_admin_id = user.id;
     }
 
-    // Lógica de campos específicos (Se guardan siempre, sea validación o cierre)
-    if (esGarantia) {
+    // Guardado de campos específicos para reportes legacy
+    if (isGarantia) {
         if (resolutionType === 'nota_credito') {
             updatePayload.nc_fecha_notificacion = fechaHoy;
             updatePayload.nc_notificado_por = formValues.persona_notifica || "Sistema"; 
-        } 
-        else if (resolutionType === 'cambio_fisico' || resolutionType === 'reparacion') {
+        } else if (['cambio_fisico', 'reparacion'].includes(resolutionType)) {
             updatePayload.fecha_reingreso_tienda = fechaHoy;
-            updatePayload.recibido_de_proveedor_por_id = user.id; 
             updatePayload.fecha_entrega_cliente = fechaHoy;
-            updatePayload.entregado_cliente_por_id = user.id; 
         }
     } else {
         if (resolutionType === 'nota_credito') updatePayload.nc_fecha_notificacion = fechaHoy;
     }
 
     try {
-      const { error } = await supabase.from(tipoTabla).update(updatePayload).eq('id', id);
+      const { error } = await supabase.from(tableName).update(updatePayload).eq('id', id);
       if (error) throw error;
-      alert(esAdmin ? "Proceso cerrado exitosamente." : "Solución enviada a validación.");
-      navigate("/processes"); 
+      alert(esAdmin ? "✅ Caso cerrado correctamente." : "✅ Solución enviada a validación.");
+      setIsResolving(false);
+      fetchDetail();
     } catch (error) {
       alert("Error: " + error.message);
     }
   };
 
-  // --- LÓGICA DE APROBACIÓN (SOLO ADMIN) ---
   const handleAdminDecision = async (decision) => {
-      const confirmar = window.confirm(`¿Estás seguro de ${decision === 'aprobar' ? 'APROBAR y CERRAR' : 'RECHAZAR'} esta solicitud?`);
-      if (!confirmar) return;
+      if (!window.confirm(`¿Estás seguro de ${decision === 'aprobar' ? 'APROBAR' : 'RECHAZAR'} esta solicitud?`)) return;
 
       try {
           const updatePayload = {};
-          
           if (decision === 'aprobar') {
               updatePayload.estatus = 'cerrado';
               updatePayload.fecha_cierre = new Date();
-              updatePayload.cerrado_por_id = data.datos_resolucion?.propuesto_por_id || user.id; // Mantiene al original o al admin
-              updatePayload.validado_por_admin_id = user.id; // El admin actual valida
+              updatePayload.cerrado_por_id = data.datos_resolucion?.propuesto_por_id || user.id;
+              updatePayload.validado_por_admin_id = user.id;
           } else {
-              // Rechazar: vuelve a activo y limpia la resolución propuesta
               updatePayload.estatus = 'activo';
               updatePayload.tipo_resolucion = null; 
-              // Opcional: Podrías guardar el JSON anterior en un log de "intentos" si quisieras
           }
 
-          const { error } = await supabase.from(tipoTabla).update(updatePayload).eq('id', id);
+          const { error } = await supabase.from(tableName).update(updatePayload).eq('id', id);
           if (error) throw error;
           
-          alert(decision === 'aprobar' ? "Validado y Cerrado." : "Rechazado. El caso vuelve a estar Activo.");
-          navigate("/processes"); // O recargar la página
+          alert(decision === 'aprobar' ? "✅ Validado y Cerrado." : "❌ Rechazado. Vuelve a estatus Activo.");
+          fetchDetail();
 
       } catch (error) {
           alert("Error: " + error.message);
       }
   };
 
-  // Helper para JSON
+  const getStatusColor = (status) => {
+    if (status === 'cerrado') return 'badge-closed';
+    if (status === 'pendiente_validacion') return 'badge-pending';
+    return 'badge-active';
+  };
+
   const renderDatosJson = (json) => {
       if (!json) return null;
       const keysToShow = Object.keys(json).filter(k => !['resolucion_aplicada','fecha_registro_resolucion','propuesto_por_id'].includes(k));
       return (
-          <div style={{ marginTop: '10px', fontSize: '0.85rem', background: '#f0fdf4', padding: '10px', borderRadius: '6px' }}>
+          <div style={{ marginTop: '10px', fontSize: '0.85rem', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
               {keysToShow.map(k => (
-                  <div key={k} style={{marginBottom: '4px'}}>
-                      <strong style={{textTransform: 'capitalize'}}>{k.replace(/_/g, ' ')}:</strong> {json[k]}
+                  <div key={k} style={{marginBottom: '4px', display: 'grid', gridTemplateColumns: '150px 1fr'}}>
+                      <span style={{fontWeight: '600', color: '#64748b', textTransform: 'capitalize'}}>{k.replace(/_/g, ' ')}:</span> 
+                      <span style={{color: '#334155'}}>{json[k]}</span>
                   </div>
               ))}
           </div>
       );
   };
 
-  if (loading) return <div className="p-8 text-center">Cargando...</div>;
-  if (!data) return <div className="p-8 text-center">No encontrado.</div>;
+  const getResolutionIcon = (value) => {
+      switch(value) {
+          case 'nota_credito': return <FileBadge size={18} />;
+          case 'cambio_fisico': return <RefreshCcw size={18} />;
+          case 'reparacion': return <Wrench size={18} />;
+          default: return <FileText size={18} />;
+      }
+  };
 
-  const opciones = esGarantia 
-    ? [{ value: 'nota_credito', label: '📄 Nota de Crédito' }, { value: 'cambio_fisico', label: '🔄 Cambio Físico' }, { value: 'reparacion', label: '🛠️ Reparación' }]
-    : [{ value: 'nota_credito', label: '📄 Nota de Crédito' }, { value: 'cambio_fisico', label: '🔄 Cambio Físico' }];
+  if (loading) return <div className="p-8 text-center">Cargando detalles...</div>;
+  if (!data) return <div className="p-8 text-center">Registro no encontrado.</div>;
+
+  const opcionesResolucion = isGarantia 
+    ? [{ value: 'nota_credito', label: 'Nota de Crédito' }, { value: 'cambio_fisico', label: 'Cambio Físico' }, { value: 'reparacion', label: 'Reparación' }]
+    : [{ value: 'nota_credito', label: 'Nota de Crédito' }, { value: 'cambio_fisico', label: 'Cambio Físico' }];
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '3rem' }}>
+    <div className="container" style={{ paddingBottom: '4rem' }}>
       
-      {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem', gap: '1rem' }}>
-        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem' }}>⬅️</button>
-        <div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: 0 }}>{data.folio}</h1>
-            <span style={{ 
-                background: data.estatus === 'activo' ? '#dbeafe' : (data.estatus === 'pendiente_validacion' ? '#fef3c7' : '#f1f5f9'), 
-                color: data.estatus === 'activo' ? '#1e40af' : (data.estatus === 'pendiente_validacion' ? '#b45309' : '#475569'), 
-                padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold' 
-            }}>
-                {data.estatus?.toUpperCase().replace('_', ' ')}
-            </span>
+      {/* HEADER DE NAVEGACIÓN */}
+      <div style={{ marginBottom: '2rem' }}>
+        <button 
+            onClick={() => navigate(-1)} 
+            className="btn"
+            style={{ 
+                background: 'transparent', border: 'none', paddingLeft: 0,
+                color: '#64748b', marginBottom: '1rem' 
+            }}
+        >
+            <ArrowLeft size={18} /> Volver al listado
+        </button>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{ 
+                    padding: '12px', borderRadius: '12px',
+                    background: isGarantia ? '#fff7ed' : '#f0f9ff',
+                    color: isGarantia ? 'var(--color-brand-primary)' : '#0ea5e9'
+                }}>
+                    {isGarantia ? <ShieldCheck size={32} /> : <Undo2 size={32} />}
+                </div>
+                <div>
+                    <h1 style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+                        {data.folio}
+                        <span className={`badge ${getStatusColor(data.estatus)}`} style={{ fontSize: '0.9rem', padding: '5px 12px' }}>
+                            {data.estatus.replace('_', ' ').toUpperCase()}
+                        </span>
+                    </h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginTop: '4px', fontSize: '0.9rem' }}>
+                        <Calendar size={14} /> 
+                        Registrado el {new Date(data.created_at).toLocaleDateString()}
+                    </div>
+                </div>
+            </div>
+            
+            <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: '0.8rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#cbd5e1' }}>ID INTERNO</div>
+                {data.id}
+            </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+      {/* LAYOUT PRINCIPAL */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
         
-        {/* COLUMNA IZQUIERDA */}
-        <div className="form-section">
-            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '1rem', color: '#64748b' }}>📦 Información</h3>
-            <DetailRow label="Producto" value={data.producto_nombre} />
-            <DetailRow label="Proveedor" value={data.proveedores?.nombre} />
-            <DetailRow label="Nombre del Vendedor" value={data.recibido_por_proveedor_nombre} />
-            <DetailRow label="Registrado por" value={data.usuario_responsable?.nombre_completo} />
+        {/* COLUMNA IZQUIERDA: INFORMACIÓN */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            <div style={{ marginTop: '2rem' }}>
-                <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem' }}>Razón / Falla</h4>
-                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.9rem' }}>
-                    {esGarantia ? data.defecto_descripcion : data.razon_devolucion}
+            {/* TARJETA DE PRODUCTO */}
+            <div className="card">
+                <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b' }}>
+                    <Hash size={20} color="#64748b" /> Detalle del Producto
+                </h3>
+                
+                {/* Grid de Datos del Producto */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                    <div>
+                        <label className="text-sm" style={{ color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Producto</label>
+                        <div style={{ fontWeight: '600', fontSize: '1rem', color: '#334155' }}>{data.producto_nombre}</div>
+                    </div>
+                    <div>
+                        <label className="text-sm" style={{ color: '#94a3b8', display: 'block', marginBottom: '4px' }}>SKU / Clave</label>
+                        <div style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Hash size={14} color="#94a3b8" /> {data.producto_clave}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-sm" style={{ color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Valor</label>
+                        <div style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <CreditCard size={14} color="#94a3b8" /> ${data.factura_valor || "0.00"}
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Descripción Limpia */}
+                <div>
+                    <label className="text-sm" style={{ color: '#64748b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                        <FileText size={14} /> {isGarantia ? "Falla Reportada" : "Motivo de Devolución"}
+                    </label>
+                    <p style={{ lineHeight: '1.6', color: '#334155', fontSize: '1rem' }}>
+                        {parsedDescription}
+                    </p>
                 </div>
             </div>
 
-            {/* FOTO EVIDENCIA */}
-            {data.evidencia_entrega_url && (
-                <div style={{ marginTop: '2rem' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem' }}>📸 Evidencia Adjunta</h4>
-                    <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                        <img src={data.evidencia_entrega_url} alt="Evidencia" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            {/* TARJETAS DE CONTEXTO (Origen y Cliente) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                
+                {/* Origen */}
+                <div className="card">
+                    <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Store size={18} /> Origen
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                            <div style={{ background: '#f1f5f9', padding: '8px', borderRadius: '50%' }}>
+                                <MapPin size={18} color="var(--color-brand-primary)" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>Sucursal</div>
+                                <div style={{ fontWeight: '600', color: '#334155' }}>{data.sucursales?.nombre}</div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                            <div style={{ background: '#f1f5f9', padding: '8px', borderRadius: '50%' }}>
+                                <Truck size={18} color="var(--color-brand-primary)" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>Proveedor</div>
+                                <div style={{ fontWeight: '600', color: '#334155' }}>{data.proveedores?.nombre}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+
+                {/* Cliente (Datos parseados) */}
+                <div className="card">
+                    <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <User size={18} /> Cliente
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                            <div style={{ background: '#f1f5f9', padding: '8px', borderRadius: '50%' }}>
+                                <User size={18} color="#64748b" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>Nombre</div>
+                                <div style={{ fontWeight: '600', color: '#334155' }}>{parsedClient.name || "No registrado"}</div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                            <div style={{ background: '#f1f5f9', padding: '8px', borderRadius: '50%' }}>
+                                <Phone size={18} color="#64748b" />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>Teléfono</div>
+                                <div style={{ fontWeight: '600', color: '#334155' }}>{parsedClient.phone || "No registrado"}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        {/* COLUMNA DERECHA */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* COLUMNA DERECHA: PANELES DE ACCIÓN (Sticky) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '20px' }}>
             
-            <div className="form-section">
-                <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '1rem', color: '#64748b' }}>📍 Administración</h3>
-                <DetailRow label="Sucursal" value={data.sucursales?.nombre} />
-                <DetailRow label="Fecha Registro" value={new Date(data.created_at).toLocaleString()} />
+            {/* PANEL DE GESTIÓN */}
+            <div className="card" style={{ borderTop: '4px solid var(--color-brand-primary)' }}>
+                <h3 style={{ marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 'bold' }}>Gestión del Caso</h3>
                 
                 {data.estatus === 'cerrado' && (
-                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #eee' }}>
-                        <DetailRow label="Fecha Cierre" value={new Date(data.fecha_cierre).toLocaleDateString()} />
-                        <div style={{ marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Resolución Final</div>
-                            <div style={{ fontSize: '1.1rem', color: '#166534', fontWeight: '700' }}>{data.tipo_resolucion?.replace(/_/g, " ").toUpperCase()}</div>
-                            {renderDatosJson(data.datos_resolucion)}
+                    <div style={{ background: '#ecfdf5', padding: '15px', borderRadius: '8px', border: '1px solid #a7f3d0', color: '#065f46', textAlign: 'center' }}>
+                        <CheckCircle2 size={32} style={{ margin: '0 auto 8px auto', color: '#059669' }} />
+                        <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Caso Cerrado</div>
+                        <div style={{ fontSize: '0.85rem' }}>Resolución: {data.tipo_resolucion?.replace(/_/g, " ").toUpperCase()}</div>
+                    </div>
+                )}
+
+                {data.estatus === 'activo' && (
+                    <div>
+                        {!isResolving ? (
+                            <button onClick={() => setIsResolving(true)} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
+                                <Archive size={18} /> Iniciar Resolución
+                            </button>
+                        ) : (
+                            <div style={{ animation: 'fadeIn 0.2s ease' }}>
+                                <div style={{ marginBottom: '10px', fontWeight: '600', color: '#475569', fontSize: '0.9rem' }}>Tipo de Resolución:</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+                                    {opcionesResolucion.map((opcion) => (
+                                        <label key={opcion.value} style={{ 
+                                            display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '6px', cursor: 'pointer',
+                                            border: resolutionType === opcion.value ? '2px solid var(--color-brand-primary)' : '1px solid #e2e8f0', 
+                                            background: resolutionType === opcion.value ? '#fff7ed' : 'white',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            <input type="radio" name="resolution" value={opcion.value} checked={resolutionType === opcion.value} onChange={(e) => { setResolutionType(e.target.value); setFormValues({}); }} />
+                                            <span style={{ fontWeight: '500', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {getResolutionIcon(opcion.value)} {opcion.label}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                                
+                                {/* USO DEL COMPONENTE EXTERNO */}
+                                <ResolutionForms 
+                                    isGarantia={isGarantia} 
+                                    resolutionType={resolutionType} 
+                                    onChange={handleInputChange} 
+                                />
+                                
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
+                                    <button onClick={() => { setIsResolving(false); setResolutionType(""); }} className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Cancelar</button>
+                                    <button onClick={handleConfirmarResolucion} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                                        {userRole === 'admin' ? "Cerrar" : "Enviar"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {data.estatus === 'pendiente_validacion' && (
+                     <div style={{ background: '#fffbeb', padding: '15px', borderRadius: '8px', border: '1px solid #fcd34d' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontWeight: 'bold', marginBottom: '10px' }}>
+                            <AlertTriangle size={20} /> Validación Requerida
                         </div>
+                        <div style={{ fontSize: '0.9rem', color: '#78350f' }}>Propuesta: <strong>{data.tipo_resolucion?.toUpperCase().replace('_', ' ')}</strong></div>
+                        
+                        {renderDatosJson(data.datos_resolucion)}
+
+                        {userRole === 'admin' ? (
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                                <button onClick={() => handleAdminDecision('rechazar')} className="btn" style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', flex: 1, justifyContent: 'center' }}>Rechazar</button>
+                                <button onClick={() => handleAdminDecision('aprobar')} className="btn" style={{ background: '#10b981', color: 'white', border: 'none', flex: 1, justifyContent: 'center' }}>Aprobar</button>
+                            </div>
+                        ) : (
+                            <div style={{ marginTop: '15px', fontSize: '0.8rem', color: '#b45309', fontStyle: 'italic', textAlign: 'center' }}>
+                                Esperando aprobación del administrador...
+                            </div>
+                        )}
+                     </div>
+                )}
+            </div>
+
+            {/* EVIDENCIA DE PROVEEDOR (BOTÓN + MODAL) */}
+            <div className="card">
+                <h3 style={{ marginBottom: '1rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ImageIcon size={18} /> Evidencia de proveedor
+                </h3>
+                
+                {data.evidencia_entrega_url ? (
+                    <button 
+                        onClick={() => setShowImageModal(true)}
+                        className="btn btn-secondary" 
+                        style={{ width: '100%', justifyContent: 'center', padding: '12px', border: '1px solid #cbd5e1' }}
+                    >
+                        <Maximize2 size={18} /> Ver Evidencia
+                    </button>
+                ) : (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '6px', fontSize: '0.9rem' }}>
+                        Sin evidencia adjunta
                     </div>
                 )}
             </div>
 
-            {/* PANEL DE VALIDACIÓN (SOLO PARA ADMIN SI HAY SOLICITUD PENDIENTE) */}
-            {data.estatus === 'pendiente_validacion' && userRole === 'admin' && (
-                <div className="form-section" style={{ border: '2px solid #f59e0b', background: '#fffbeb' }}>
-                    <h3 style={{ color: '#b45309', marginBottom: '1rem' }}>⚠️ Validación Requerida</h3>
-                    <p style={{ fontSize: '0.9rem' }}>Un cajero ha propuesto la siguiente solución:</p>
-                    
-                    <div style={{ background: 'white', padding: '10px', borderRadius: '6px', margin: '10px 0', border: '1px solid #e5e7eb' }}>
-                        <div style={{ fontWeight: 'bold', color: '#1f2937' }}>{data.tipo_resolucion?.toUpperCase().replace('_', ' ')}</div>
-                        {renderDatosJson(data.datos_resolucion)}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                        <button onClick={() => handleAdminDecision('rechazar')} style={{...btnCancelStyle, background: '#fee2e2', color: '#991b1b'}}>❌ Rechazar</button>
-                        <button onClick={() => handleAdminDecision('aprobar')} style={{...btnConfirmStyle, background: '#059669'}}>✅ Aprobar y Cerrar</button>
-                    </div>
-                </div>
-            )}
-
-            {/* MENSAJE DE ESPERA (PARA CAJEROS SI ESTÁ EN VALIDACIÓN) */}
-            {data.estatus === 'pendiente_validacion' && userRole !== 'admin' && (
-                <div className="form-section" style={{ background: '#fffbeb', textAlign: 'center', color: '#b45309' }}>
-                    ⏳ Este caso está en espera de validación por un Administrador.
-                </div>
-            )}
-
-            {/* FORMULARIO ACTIVO (PARA TODOS SI ESTÁ ACTIVO) */}
-            {data.estatus === 'activo' && (
-                <div className="form-section">
-                    
-                    {!isResolving ? (
-                        <button onClick={() => setIsResolving(true)} style={btnPrimaryStyle}>
-                            {userRole === 'admin' ? "Resolver Caso" : "Iniciar Resolución"}
-                        </button>
-                    ) : (
-                        <div>
-                            <h4 style={{ marginBottom: '1rem' }}>Selecciona Resolución</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                                {opciones.map((opcion) => (
-                                    <label key={opcion.value} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', border: resolutionType === opcion.value ? '2px solid var(--color-brand-primary)' : '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', background: resolutionType === opcion.value ? '#fff7ed' : 'white' }}>
-                                        <input type="radio" name="resolution" value={opcion.value} checked={resolutionType === opcion.value} onChange={(e) => { setResolutionType(e.target.value); setFormValues({}); }} />
-                                        <span style={{ fontWeight: '500' }}>{opcion.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-
-                            {renderFormularioDinamico()}
-
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
-                                <button onClick={() => { setIsResolving(false); setResolutionType(""); }} style={btnCancelStyle}>Cancelar</button>
-                                <button onClick={handleConfirmarResolucion} style={btnConfirmStyle}>
-                                    {userRole === 'admin' ? "Confirmar y Cerrar" : "Enviar para Validación"}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
       </div>
+
+      {/* MODAL DE IMAGEN (OVERLAY) */}
+      {showImageModal && (
+        <div style={{ 
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.9)', zIndex: 9999, 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
+            animation: 'fadeIn 0.2s ease'
+        }} onClick={() => setShowImageModal(false)}>
+            <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }} onClick={(e) => e.stopPropagation()}>
+                <button 
+                    onClick={() => setShowImageModal(false)}
+                    style={{ 
+                        position: 'absolute', top: '-50px', right: 0, 
+                        background: 'white', border: 'none', color: 'black', cursor: 'pointer',
+                        borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                >
+                    <X size={24} />
+                </button>
+                <img 
+                    src={data.evidencia_entrega_url} 
+                    alt="Evidencia Full" 
+                    style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '8px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)' }} 
+                />
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };
-
-// ... COMPONENTES UI Y ESTILOS ...
-const InputText = ({ label, ...props }) => (<div className="form-group"><label className="form-label">{label}</label><input type="text" className="form-input" {...props} /></div>);
-const InputDate = ({ label, ...props }) => (<div className="form-group"><label className="form-label">{label}</label><input type="date" className="form-input" {...props} /></div>);
-const DetailRow = ({ label, value }) => (<div style={{ marginBottom: '1rem' }}><div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '2px' }}>{label}</div><div style={{ fontSize: '1rem', color: '#334155', fontWeight: '500' }}>{value || "---"}</div></div>);
-const subFormStyle = { background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '10px' };
-const btnPrimaryStyle = { width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' };
-const btnConfirmStyle = { flex: 1, padding: '10px', background: 'var(--color-brand-primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const btnCancelStyle = { flex: 1, padding: '10px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 
 export default ProcessDetail;
