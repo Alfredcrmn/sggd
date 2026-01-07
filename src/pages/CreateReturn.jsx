@@ -30,8 +30,8 @@ const CreateReturn = () => {
     producto_clave: "",
     producto_costo: "",
     razon_devolucion: "",
-    cliente_nombre: "",
-    cliente_telefono: ""
+    vendedor_nombre: "",   // Estado específico para vendedor
+    vendedor_telefono: ""
   });
   
   useEffect(() => {
@@ -68,7 +68,18 @@ const CreateReturn = () => {
         const { data: publicUrlData } = supabase.storage.from('evidencias').getPublicUrl(filePath);
 
         const { error: insertError } = await supabase.from('devoluciones').insert({
-            ...formData,
+            folio: formData.folio,
+            sucursal_id: formData.sucursal_id,
+            proveedor_id: formData.proveedor_id,
+            producto_nombre: formData.producto_nombre,
+            producto_clave: formData.producto_clave,
+            factura_valor: formData.producto_costo, // Mapeo a factura_valor
+            razon_devolucion: formData.razon_devolucion,
+            
+            // Columnas Específicas de VENDEDOR
+            vendedor_nombre: formData.vendedor_nombre,
+            vendedor_telefono: formData.vendedor_telefono,
+            
             evidencia_entrega_url: publicUrlData.publicUrl,
             estatus: 'activo',
             solicitado_por_id: user.id
@@ -78,6 +89,7 @@ const CreateReturn = () => {
         alert("✅ Devolución registrada correctamente.");
         navigate("/processes");
     } catch (error) {
+        console.error(error);
         alert("Error: " + error.message);
     } finally {
         setLoading(false);
@@ -99,14 +111,10 @@ const CreateReturn = () => {
       </div>
 
       <form onSubmit={handleSubmit}>
-        
-        {/* GRID PRINCIPAL (Iguala alturas) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'stretch' }}>
             
             {/* COLUMNA IZQUIERDA */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
-                {/* ORIGEN */}
                 <div className="card">
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <FileText size={16} /> Datos del Origen
@@ -133,7 +141,6 @@ const CreateReturn = () => {
                     </div>
                 </div>
 
-                {/* PRODUCTO */}
                 <div className="card" style={{ flex: 1 }}>
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <Package size={16} /> Detalles del Producto
@@ -164,30 +171,26 @@ const CreateReturn = () => {
 
             {/* COLUMNA DERECHA */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
-                {/* CLIENTE */}
                 <div className="card">
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-                        <User size={16} /> Cliente
+                        <User size={16} /> Datos del Vendedor
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div>
-                            <label className="form-label">Nombre</label>
-                            <input required name="cliente_nombre" type="text" className="form-input" onChange={handleInputChange} />
+                            <label className="form-label">Nombre Representante</label>
+                            <input required name="vendedor_nombre" type="text" className="form-input" onChange={handleInputChange} />
                         </div>
                         <div>
-                            <label className="form-label">Teléfono</label>
-                            <input required name="cliente_telefono" type="tel" className="form-input" onChange={handleInputChange} />
+                            <label className="form-label">Teléfono / Contacto</label>
+                            <input required name="vendedor_telefono" type="tel" className="form-input" onChange={handleInputChange} />
                         </div>
                     </div>
                 </div>
 
-                {/* EVIDENCIA (Full Height) */}
                 <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <Upload size={16} /> Evidencia
                     </h3>
-                    
                     <div style={{ 
                         border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '1rem', 
                         textAlign: 'center', background: '#f8fafc', flex: 1, 
@@ -197,7 +200,7 @@ const CreateReturn = () => {
                         <label htmlFor="file-upload-return" style={{ cursor: 'pointer', width: '100%' }}>
                             <div style={{ marginBottom: '15px' }}>
                                 {file ? (
-                                    <div style={{background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '5px'}}>
+                                    <div style={{background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold'}}>
                                         ✅ Imagen Cargada
                                     </div>
                                 ) : (
@@ -210,41 +213,17 @@ const CreateReturn = () => {
                         </label>
                     </div>
                 </div>
-
             </div>
         </div>
 
-        {/* BOTONES GRANDES */}
         <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
-            <button 
-                type="button" 
-                onClick={() => navigate('/')} 
-                className="btn"
-                style={{ 
-                    padding: '1rem', 
-                    fontSize: '1rem', 
-                    background: 'white', 
-                    border: '1px solid #cbd5e1',
-                    color: '#64748b'
-                }}
-            >
+            <button type="button" onClick={() => navigate('/')} className="btn" style={{ padding: '1rem', fontSize: '1rem', background: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}>
                 <X size={20} /> Cancelar
             </button>
-
-            <button 
-                type="submit" 
-                disabled={loading} 
-                className="btn btn-primary"
-                style={{ padding: '1rem', fontSize: '1rem', justifyContent: 'center' }}
-            >
-                {loading ? "Guardando..." : (
-                    <>
-                        <Save size={20} /> Registrar Devolución
-                    </>
-                )}
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem', justifyContent: 'center' }}>
+                {loading ? "Guardando..." : <><Save size={20} /> Registrar Devolución</>}
             </button>
         </div>
-
       </form>
     </div>
   );

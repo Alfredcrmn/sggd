@@ -10,7 +10,7 @@ import {
   Package, 
   FileText, 
   CreditCard,
-  X 
+  X
 } from "lucide-react";
 
 const CreateWarranty = () => {
@@ -28,7 +28,7 @@ const CreateWarranty = () => {
     proveedor_id: "",
     producto_nombre: "",
     producto_clave: "",
-    producto_costo: "",
+    producto_costo: "", // Se guardará como factura_valor
     defecto_descripcion: "",
     cliente_nombre: "",
     cliente_telefono: ""
@@ -58,6 +58,7 @@ const CreateWarranty = () => {
 
     setLoading(true);
     try {
+        // 1. Subir Imagen
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `garantias/${fileName}`;
@@ -67,8 +68,20 @@ const CreateWarranty = () => {
 
         const { data: publicUrlData } = supabase.storage.from('evidencias').getPublicUrl(filePath);
 
+        // 2. Insertar Registro
         const { error: insertError } = await supabase.from('garantias').insert({
-            ...formData,
+            folio: formData.folio,
+            sucursal_id: formData.sucursal_id,
+            proveedor_id: formData.proveedor_id,
+            producto_nombre: formData.producto_nombre,
+            producto_clave: formData.producto_clave,
+            factura_valor: formData.producto_costo, // Mapeo correcto a la DB
+            defecto_descripcion: formData.defecto_descripcion,
+            
+            // Columnas Específicas de CLIENTE
+            cliente_nombre: formData.cliente_nombre,
+            cliente_telefono: formData.cliente_telefono,
+            
             evidencia_entrega_url: publicUrlData.publicUrl,
             estatus: 'activo',
             recibido_por_id: user.id
@@ -78,6 +91,7 @@ const CreateWarranty = () => {
         alert("✅ Garantía registrada correctamente.");
         navigate("/processes");
     } catch (error) {
+        console.error(error);
         alert("Error: " + error.message);
     } finally {
         setLoading(false);
@@ -99,14 +113,10 @@ const CreateWarranty = () => {
       </div>
 
       <form onSubmit={handleSubmit}>
-        
-        {/* GRID PRINCIPAL */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'stretch' }}>
             
             {/* COLUMNA IZQUIERDA */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
-                {/* ORIGEN */}
                 <div className="card">
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <FileText size={16} /> Datos del Origen
@@ -133,7 +143,6 @@ const CreateWarranty = () => {
                     </div>
                 </div>
 
-                {/* PRODUCTO */}
                 <div className="card" style={{ flex: 1 }}>
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <Package size={16} /> Detalles del Producto
@@ -164,8 +173,6 @@ const CreateWarranty = () => {
 
             {/* COLUMNA DERECHA */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
-                {/* CLIENTE */}
                 <div className="card">
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <User size={16} /> Cliente
@@ -182,13 +189,10 @@ const CreateWarranty = () => {
                     </div>
                 </div>
 
-                {/* EVIDENCIA (Expandida con flex: 1) */}
                 <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                         <Upload size={16} /> Evidencia
                     </h3>
-                    
-                    {/* El contenedor dashed también crece con flex: 1 */}
                     <div style={{ 
                         border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '1rem', 
                         textAlign: 'center', background: '#f8fafc', flex: 1, 
@@ -198,7 +202,7 @@ const CreateWarranty = () => {
                         <label htmlFor="file-upload" style={{ cursor: 'pointer', width: '100%' }}>
                             <div style={{ marginBottom: '15px' }}>
                                 {file ? (
-                                    <div style={{background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '5px'}}>
+                                    <div style={{background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold'}}>
                                         ✅ Imagen Cargada
                                     </div>
                                 ) : (
@@ -211,41 +215,17 @@ const CreateWarranty = () => {
                         </label>
                     </div>
                 </div>
-
             </div>
         </div>
 
-        {/* BOTONES INFERIORES GRANDES */}
         <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
-            <button 
-                type="button" 
-                onClick={() => navigate('/')} 
-                className="btn"
-                style={{ 
-                    padding: '1rem', 
-                    fontSize: '1rem', 
-                    background: 'white', 
-                    border: '1px solid #cbd5e1',
-                    color: '#64748b'
-                }}
-            >
+            <button type="button" onClick={() => navigate('/')} className="btn" style={{ padding: '1rem', fontSize: '1rem', background: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}>
                 <X size={20} /> Cancelar
             </button>
-            
-            <button 
-                type="submit" 
-                disabled={loading} 
-                className="btn btn-primary"
-                style={{ padding: '1rem', fontSize: '1rem', justifyContent: 'center' }}
-            >
-                {loading ? "Registrando..." : (
-                    <>
-                        <Save size={20} /> Registrar Garantía
-                    </>
-                )}
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem', justifyContent: 'center' }}>
+                {loading ? "Registrando..." : <><Save size={20} /> Registrar Garantía</>}
             </button>
         </div>
-
       </form>
     </div>
   );
