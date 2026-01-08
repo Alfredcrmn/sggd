@@ -2,19 +2,18 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-// Icons (Estilo consistente)
+// Icons
 import { 
   Undo2, 
   Save, 
-  Upload, 
   User, 
   Package, 
   FileText, 
-  DollarSign,
-  Hash,
-  Store,
-  Ticket,
-  X
+  DollarSign, 
+  Hash, 
+  Ticket, 
+  X,
+  Store 
 } from "lucide-react";
 
 const CreateReturn = () => {
@@ -24,7 +23,8 @@ const CreateReturn = () => {
   const [loading, setLoading] = useState(false);
   const [sucursales, setSucursales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
-  const [file, setFile] = useState(null);
+  
+  // Eliminado estado 'file'
   
   const [formData, setFormData] = useState({
     folio: "",
@@ -40,10 +40,14 @@ const CreateReturn = () => {
   
   useEffect(() => {
     const fetchCatalogos = async () => {
-      const { data: sucs } = await supabase.from('sucursales').select('*').eq("activa", true);
-      const { data: provs } = await supabase.from('proveedores').select('*').eq("activo", true);
-      if (sucs) setSucursales(sucs);
-      if (provs) setProveedores(provs);
+      try {
+        const { data: sucs } = await supabase.from('sucursales').select('*');
+        const { data: provs } = await supabase.from('proveedores').select('*');
+        setSucursales(sucs || []);
+        setProveedores(provs || []);
+      } catch (error) {
+        console.error(error);
+      }
     };
     fetchCatalogos();
   }, []);
@@ -52,30 +56,16 @@ const CreateReturn = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Validaciones básicas
+    // Validaciones básicas (Ya no validamos 'file')
     if (!formData.folio || !formData.sucursal_id || !formData.proveedor_id || !formData.producto_nombre) {
         return alert("Por favor complete los campos obligatorios.");
     }
-    if (!file) return alert("⚠️ Es obligatorio adjuntar la foto de evidencia (QR) para devoluciones.");
 
     setLoading(true);
     try {
-        // 1. Subir imagen
-        const fileExt = file.name.split('.').pop();
-        const fileName = `devoluciones/${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage.from('evidencias').upload(fileName, file);
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage.from('evidencias').getPublicUrl(fileName);
-
-        // 2. Guardar registro
+        // Insertar registro DIRECTO (Sin subir imagen)
         const { error: insertError } = await supabase.from('devoluciones').insert({
             folio: formData.folio,
             sucursal_id: formData.sucursal_id,
@@ -86,8 +76,8 @@ const CreateReturn = () => {
             razon_devolucion: formData.razon_devolucion,
             vendedor_nombre: formData.vendedor_nombre,
             vendedor_telefono: formData.vendedor_telefono,
-            evidencia_entrega_url: publicUrlData.publicUrl,
-            estatus: 'creado', // Estandarizado a 'creado' como en garantías
+            // evidencia_entrega_url se omite (será NULL)
+            estatus: 'creado',
             solicitado_por_id: user.id
         });
 
@@ -102,17 +92,16 @@ const CreateReturn = () => {
     }
   };
 
-  // ESTILOS UNIFICADOS (Idénticos a CreateWarranty)
+  // ESTILOS UNIFICADOS
   const sectionTitleStyle = { fontSize: '1.1rem', fontWeight: '600', color: '#334155', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' };
   const inputGroupStyle = { marginBottom: '1rem' };
   const labelStyle = { display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: '600' };
   const inputStyle = { width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none' };
 
   return (
-    // WIDTH 100% y Padding correcto
     <div className="container" style={{ padding: '0 2rem 2rem 2rem', width: '100%' }}>
       
-      {/* HEADER (Estilo Azul para Devoluciones) */}
+      {/* HEADER */}
       <div style={{ padding: '2rem 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{ background: '#f0f9ff', padding: '10px', borderRadius: '12px', color: '#0284c7' }}>
             <Undo2 size={28} strokeWidth={2} />
@@ -202,38 +191,7 @@ const CreateReturn = () => {
                 </div>
             </div>
 
-            {/* EVIDENCIA (Manteniendo funcionalidad pero mejor estilo) */}
-            <div className="card">
-                <h3 style={sectionTitleStyle}><Upload size={20} color="#64748b"/> Evidencia</h3>
-                <div style={{ 
-                    border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '1.5rem', 
-                    textAlign: 'center', background: '#f8fafc', cursor: 'pointer', transition: 'all 0.2s'
-                }}>
-                    <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} id="file-upload-return" />
-                    <label htmlFor="file-upload-return" style={{ cursor: 'pointer', display: 'block' }}>
-                        <div style={{ marginBottom: '10px' }}>
-                            {file ? (
-                                <div style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                    ✅ {file.name}
-                                </div>
-                            ) : (
-                                <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Click para subir foto/QR</span>
-                            )}
-                        </div>
-                        <div style={{ 
-                            background: file ? '#e2e8f0' : '#fff', 
-                            border: '1px solid #cbd5e1', 
-                            padding: '8px 12px', 
-                            borderRadius: '6px', 
-                            fontSize: '0.85rem',
-                            color: '#475569',
-                            fontWeight: '600'
-                        }}>
-                            {file ? "Cambiar Archivo" : "Seleccionar Archivo"}
-                        </div>
-                    </label>
-                </div>
-            </div>
+            {/* SE ELIMINÓ LA TARJETA DE EVIDENCIA */}
 
             {/* BOTONES */}
             <div style={{ display: 'flex', gap: '1rem' }}>

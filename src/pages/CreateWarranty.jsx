@@ -27,16 +27,22 @@ const CreateWarranty = () => {
     defecto_descripcion: "",
   });
 
-  // Cargar catálogos
+  // Cargar catálogos (CORREGIDO: Sin filtros .eq para evitar error 400)
   useEffect(() => {
     const fetchCatalogs = async () => {
       try {
-        const { data: sucData } = await supabase.from("sucursales").select("*").eq("activa", true);
+        // Quitamos .eq("activa", true) por seguridad
+        const { data: sucData, error: sucError } = await supabase.from("sucursales").select("*");
+        if (sucError) console.error("Error sucursales:", sucError.message);
         setSucursales(sucData || []);
-        const { data: provData } = await supabase.from("proveedores").select("*").eq("activo", true);
+
+        // Quitamos .eq("activo", true) por seguridad
+        const { data: provData, error: provError } = await supabase.from("proveedores").select("*");
+        if (provError) console.error("Error proveedores:", provError.message);
         setProveedores(provData || []);
+        
       } catch (error) {
-        console.error("Error cargando catálogos:", error);
+        console.error("Error general cargando catálogos:", error);
       }
     };
     fetchCatalogs();
@@ -84,7 +90,6 @@ const CreateWarranty = () => {
   const inputStyle = { width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none' };
 
   return (
-    // CORRECCIÓN: Padding ajustado y width 100% (sin maxWidth)
     <div className="container" style={{ padding: '0 2rem 2rem 2rem', width: '100%' }}>
       
       {/* HEADER */}
@@ -103,7 +108,7 @@ const CreateWarranty = () => {
         {/* COLUMNA IZQUIERDA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            {/* DATOS DEL ORIGEN (Tarjeta limpia) */}
+            {/* DATOS DEL ORIGEN */}
             <div className="card">
                 <h3 style={sectionTitleStyle}><FileText size={20} color="#64748b"/> Datos del Origen</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
@@ -128,7 +133,7 @@ const CreateWarranty = () => {
                 </div>
             </div>
 
-             {/* DETALLES DEL PRODUCTO (Tarjeta limpia) */}
+             {/* DETALLES DEL PRODUCTO */}
              <div className="card">
                 <h3 style={sectionTitleStyle}><Package size={20} color="#64748b"/> Detalles del Producto</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1.5rem' }}>
@@ -158,16 +163,16 @@ const CreateWarranty = () => {
         {/* COLUMNA DERECHA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
             
-            {/* DATOS CLIENTE (Tarjeta limpia) */}
+            {/* DATOS CLIENTE */}
             <div className="card">
                  <h3 style={sectionTitleStyle}><User size={20} color="#64748b"/> Cliente</h3>
                  <div style={inputGroupStyle}>
                     <label style={labelStyle}>Nombre</label>
-                    <input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} style={inputStyle} placeholder="Opcional" />
+                    <input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} style={inputStyle} placeholder="Nombre del cliente" />
                  </div>
                   <div style={inputGroupStyle}>
                     <label style={labelStyle}>Teléfono</label>
-                    <input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} style={inputStyle} placeholder="Opcional" />
+                    <input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} style={inputStyle} placeholder="Teléfono del cliente" />
                  </div>
             </div>
 

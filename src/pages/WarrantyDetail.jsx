@@ -86,13 +86,13 @@ const WarrantyDetail = () => {
 
     // 2. MODO HISTORIAL
     return (
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <div>
              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.85rem', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9' }}>
                 <Eye size={16} /> Historial: {viewStep.replace(/_/g, ' ')}
             </div>
 
             {/* A. ENTREGA PROVEEDOR */}
-            {(viewStep === 'con_proveedor' || viewStep === 'por_aprobar' || viewStep === 'listo_para_entrega' || viewStep === 'pendiente_cierre' || viewStep === 'cerrado') && data.vendedor_nombre && (
+            {(viewStep === 'creado' || viewStep === 'con_proveedor' || viewStep === 'por_aprobar' || viewStep === 'listo_para_entrega' || viewStep === 'pendiente_cierre' || viewStep === 'cerrado') && data.vendedor_nombre && (
                 <div style={{ marginBottom: '2rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#b45309' }}>
                         <Truck size={18} /> <strong style={{ fontSize: '0.95rem' }}>Entrega a Proveedor</strong>
@@ -105,7 +105,7 @@ const WarrantyDetail = () => {
                 </div>
             )}
 
-            {/* B. RESOLUCIÓN (CORREGIDO: Ahora incluye 'con_proveedor' en la condición) */}
+            {/* B. RESOLUCIÓN */}
             {(viewStep === 'con_proveedor' || viewStep === 'por_aprobar' || viewStep === 'listo_para_entrega' || viewStep === 'pendiente_cierre' || viewStep === 'cerrado') && data.tipo_resolucion && (
                 <div style={{ marginBottom: '2rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#0369a1' }}>
@@ -150,7 +150,7 @@ const WarrantyDetail = () => {
             )}
 
             {/* C. ENTREGA CLIENTE FINAL */}
-            {(viewStep === 'cerrado' || viewStep === 'pendiente_cierre') && data.fecha_entrega_cliente && (
+            {(viewStep === 'listo_para_entrega' || viewStep === 'cerrado' || viewStep === 'pendiente_cierre') && data.fecha_entrega_cliente && (
                 <div style={{ marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#15803d' }}>
                         <User size={18} /> <strong style={{ fontSize: '0.95rem' }}>Entrega a Cliente Final</strong>
@@ -170,9 +170,21 @@ const WarrantyDetail = () => {
 
   return (
     <div className="container" style={{ padding: '0 2rem 1rem 2rem' }}>
+      
+      {/* CSS PARA SCROLLBAR */}
+      <style>{`
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}</style>
+
       <div style={{ paddingTop: '1rem' }}><ProcessHeader data={data} type="garantia" /></div>
       <div style={{ marginBottom: '2rem', padding: '0 1rem' }}><Timeline currentStatus={data.estatus} type="garantia" onStepClick={setViewStep} viewStep={viewStep} /></div>
+      
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
+        
+        {/* COLUMNA IZQUIERDA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="card">
                 <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b' }}>
@@ -199,9 +211,25 @@ const WarrantyDetail = () => {
             </div>
             {data.evidencia_entrega_url && <EvidenceCard url={data.evidencia_entrega_url} title="Evidencia de Recolección (Proveedor)" />}
         </div>
+
+        {/* COLUMNA DERECHA (STICKY) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '20px' }}>
-            <div className="card" style={{ borderTop: '4px solid var(--color-brand-primary)', minHeight: '200px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>{renderRightColumn()}</div>
+            <div 
+                className="card custom-scroll" 
+                style={{ 
+                    borderTop: '4px solid var(--color-brand-primary)', 
+                    minHeight: '200px', 
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    
+                    // CORRECCIÓN: 60vh asegura espacio de sobra para el header
+                    maxHeight: '60vh', 
+                    overflowY: 'auto'
+                }}
+            >
+                {renderRightColumn()}
+            </div>
         </div>
+
       </div>
     </div>
   );
