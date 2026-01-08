@@ -1,230 +1,186 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabase/client";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabase/client";
 import { useAuth } from "../context/AuthContext";
-import { 
-  ShieldCheck, 
-  Save, 
-  Upload, 
-  User, 
-  Package, 
-  FileText, 
-  CreditCard,
-  X
-} from "lucide-react";
+// Icons
+import { ShieldCheck, Save, X, Store, Ticket, User, Package, FileText, DollarSign, Hash } from "lucide-react";
 
 const CreateWarranty = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
   const [loading, setLoading] = useState(false);
+
+  // Catálogos
   const [sucursales, setSucursales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
-  const [file, setFile] = useState(null);
-  
+
+  // Estado del formulario
   const [formData, setFormData] = useState({
-    folio: "",
+    folio_ticket: "",
     sucursal_id: "",
     proveedor_id: "",
+    cliente_nombre: "",
+    cliente_telefono: "",
     producto_nombre: "",
     producto_clave: "",
-    producto_costo: "", // Se guardará como factura_valor
+    factura_valor: "",
     defecto_descripcion: "",
-    cliente_nombre: "",
-    cliente_telefono: ""
   });
-  
+
+  // Cargar catálogos
   useEffect(() => {
-    const fetchCatalogos = async () => {
-      const { data: sucs } = await supabase.from('sucursales').select('*');
-      const { data: provs } = await supabase.from('proveedores').select('*');
-      if (sucs) setSucursales(sucs);
-      if (provs) setProveedores(provs);
+    const fetchCatalogs = async () => {
+      try {
+        const { data: sucData } = await supabase.from("sucursales").select("*").eq("activa", true);
+        setSucursales(sucData || []);
+        const { data: provData } = await supabase.from("proveedores").select("*").eq("activo", true);
+        setProveedores(provData || []);
+      } catch (error) {
+        console.error("Error cargando catálogos:", error);
+      }
     };
-    fetchCatalogos();
+    fetchCatalogs();
   }, []);
 
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return alert("⚠️ Es obligatorio adjuntar la foto de evidencia (QR).");
+    
+    if (!formData.folio_ticket || !formData.sucursal_id || !formData.proveedor_id || !formData.producto_nombre || !formData.defecto_descripcion) {
+      alert("Por favor complete los campos obligatorios marcados con *");
+      return;
+    }
 
     setLoading(true);
     try {
-        // 1. Subir Imagen
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `garantias/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage.from('evidencias').upload(filePath, file);
-        if (uploadError) throw uploadError;
+      const { error } = await supabase.from("garantias").insert([
+        {
+          ...formData,
+          factura_valor: formData.factura_valor ? parseFloat(formData.factura_valor) : 0,
+          estatus: "creado",
+          recibido_por_id: user.id,
+        },
+      ]);
 
-        const { data: publicUrlData } = supabase.storage.from('evidencias').getPublicUrl(filePath);
+      if (error) throw error;
 
-        // 2. Insertar Registro
-        const { error: insertError } = await supabase.from('garantias').insert({
-            folio: formData.folio,
-            sucursal_id: formData.sucursal_id,
-            proveedor_id: formData.proveedor_id,
-            producto_nombre: formData.producto_nombre,
-            producto_clave: formData.producto_clave,
-            factura_valor: formData.producto_costo, // Mapeo correcto a la DB
-            defecto_descripcion: formData.defecto_descripcion,
-            
-            // Columnas Específicas de CLIENTE
-            cliente_nombre: formData.cliente_nombre,
-            cliente_telefono: formData.cliente_telefono,
-            
-            evidencia_entrega_url: publicUrlData.publicUrl,
-            estatus: 'activo',
-            recibido_por_id: user.id
-        });
-
-        if (insertError) throw insertError;
-        alert("✅ Garantía registrada correctamente.");
-        navigate("/processes");
+      alert("✅ Garantía registrada correctamente");
+      navigate("/processes"); 
     } catch (error) {
-        console.error(error);
-        alert("Error: " + error.message);
+      console.error("Error al registrar:", error.message);
+      alert("Error al registrar la garantía: " + error.message);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
+  // Estilos de UI Limpios
+  const sectionTitleStyle = { fontSize: '1.1rem', fontWeight: '600', color: '#334155', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' };
+  const inputGroupStyle = { marginBottom: '1rem' };
+  const labelStyle = { display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem', fontWeight: '600' };
+  const inputStyle = { width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.95rem', transition: 'border-color 0.2s', outline: 'none' };
+
   return (
-    <div style={{ width: '100%', padding: '0 1rem', paddingBottom: '3rem' }}>
+    // CORRECCIÓN: Padding ajustado y width 100% (sin maxWidth)
+    <div className="container" style={{ padding: '0 2rem 2rem 2rem', width: '100%' }}>
       
       {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem' }}>
-        <div style={{ background: '#fff7ed', padding: '8px', borderRadius: '8px' }}>
-            <ShieldCheck size={28} className="text-orange" />
+      <div style={{ padding: '2rem 0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ background: '#fff7ed', padding: '10px', borderRadius: '12px', color: '#ea580c' }}>
+            <ShieldCheck size={28} strokeWidth={2} />
         </div>
         <div>
-            <h1 style={{ fontSize: '1.5rem' }}>Nueva Garantía</h1>
-            <p className="text-sm">Registro de producto defectuoso.</p>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>Nueva Garantía</h1>
+            <p style={{ color: '#64748b', margin: 0, fontSize: '0.9rem' }}>Registro inicial de producto defectuoso en tienda.</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'stretch' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
+        
+        {/* COLUMNA IZQUIERDA */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            {/* COLUMNA IZQUIERDA */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div className="card">
-                    <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-                        <FileText size={16} /> Datos del Origen
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                        <div>
-                            <label className="form-label">Folio Ticket</label>
-                            <input required name="folio" type="text" className="form-input" placeholder="Ej: A-12345" onChange={handleInputChange} />
-                        </div>
-                        <div>
-                            <label className="form-label">Sucursal</label>
-                            <select required name="sucursal_id" className="form-select" onChange={handleInputChange}>
-                                <option value="">Seleccione...</option>
-                                {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="form-label">Proveedor</label>
-                            <select required name="proveedor_id" className="form-select" onChange={handleInputChange}>
-                                <option value="">Seleccione...</option>
-                                {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                            </select>
-                        </div>
+            {/* DATOS DEL ORIGEN (Tarjeta limpia) */}
+            <div className="card">
+                <h3 style={sectionTitleStyle}><FileText size={20} color="#64748b"/> Datos del Origen</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+                    <div style={inputGroupStyle}>
+                        <label style={labelStyle}>Folio Ticket *</label>
+                        <input type="text" name="folio_ticket" value={formData.folio_ticket} onChange={handleChange} style={inputStyle} placeholder="Ej: A-12345" required />
                     </div>
-                </div>
-
-                <div className="card" style={{ flex: 1 }}>
-                    <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-                        <Package size={16} /> Detalles del Producto
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        <div>
-                            <label className="form-label">Producto</label>
-                            <input required name="producto_nombre" type="text" className="form-input" placeholder="Nombre completo..." onChange={handleInputChange} />
-                        </div>
-                        <div>
-                            <label className="form-label">SKU</label>
-                            <input required name="producto_clave" type="text" className="form-input" placeholder="Clave..." onChange={handleInputChange} />
-                        </div>
-                        <div>
-                            <label className="form-label">Costo</label>
-                            <div style={{ position: 'relative' }}>
-                                <CreditCard size={16} style={{ position: 'absolute', left: '8px', top: '10px', color: '#94a3b8' }} />
-                                <input required name="producto_costo" type="number" className="form-input" style={{ paddingLeft: '2rem' }} placeholder="0.00" onChange={handleInputChange} />
-                            </div>
-                        </div>
+                    <div style={inputGroupStyle}>
+                        <label style={labelStyle}>Sucursal *</label>
+                        <select name="sucursal_id" value={formData.sucursal_id} onChange={handleChange} style={inputStyle} required>
+                            <option value="">Seleccione...</option>
+                            {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                        </select>
                     </div>
-                    <div>
-                         <label className="form-label">Falla Reportada</label>
-                         <textarea required name="defecto_descripcion" className="form-input" rows="5" placeholder="Describe el defecto..." onChange={handleInputChange} style={{ resize: 'none' }}></textarea>
+                    <div style={inputGroupStyle}>
+                        <label style={labelStyle}>Proveedor *</label>
+                        <select name="proveedor_id" value={formData.proveedor_id} onChange={handleChange} style={inputStyle} required>
+                            <option value="">Seleccione...</option>
+                            {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                        </select>
                     </div>
                 </div>
             </div>
 
-            {/* COLUMNA DERECHA */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div className="card">
-                    <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-                        <User size={16} /> Cliente
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div>
-                            <label className="form-label">Nombre</label>
-                            <input required name="cliente_nombre" type="text" className="form-input" onChange={handleInputChange} />
-                        </div>
-                        <div>
-                            <label className="form-label">Teléfono</label>
-                            <input required name="cliente_telefono" type="tel" className="form-input" onChange={handleInputChange} />
+             {/* DETALLES DEL PRODUCTO (Tarjeta limpia) */}
+             <div className="card">
+                <h3 style={sectionTitleStyle}><Package size={20} color="#64748b"/> Detalles del Producto</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1.5rem' }}>
+                    <div style={inputGroupStyle}>
+                        <label style={labelStyle}>Producto *</label>
+                        <input type="text" name="producto_nombre" value={formData.producto_nombre} onChange={handleChange} style={inputStyle} placeholder="Nombre completo..." required />
+                    </div>
+                    <div style={inputGroupStyle}>
+                        <label style={labelStyle}>SKU / Clave</label>
+                        <input type="text" name="producto_clave" value={formData.producto_clave} onChange={handleChange} style={inputStyle} placeholder="Clave..." />
+                    </div>
+                    <div style={inputGroupStyle}>
+                        <label style={labelStyle}>Valor Factura</label>
+                        <div style={{ position: 'relative' }}>
+                            <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }}>$</span>
+                            <input type="number" name="factura_valor" value={formData.factura_valor} onChange={handleChange} style={{...inputStyle, paddingLeft: '25px'}} placeholder="0.00" step="0.01" />
                         </div>
                     </div>
                 </div>
-
-                <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-                        <Upload size={16} /> Evidencia
-                    </h3>
-                    <div style={{ 
-                        border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '1rem', 
-                        textAlign: 'center', background: '#f8fafc', flex: 1, 
-                        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
-                    }}>
-                        <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} id="file-upload" />
-                        <label htmlFor="file-upload" style={{ cursor: 'pointer', width: '100%' }}>
-                            <div style={{ marginBottom: '15px' }}>
-                                {file ? (
-                                    <div style={{background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold'}}>
-                                        ✅ Imagen Cargada
-                                    </div>
-                                ) : (
-                                    <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Haz clic para subir foto</span>
-                                )}
-                            </div>
-                            <div className="btn btn-secondary" style={{ width: '100%' }}>
-                                {file ? "Cambiar Archivo" : "Seleccionar Archivo"}
-                            </div>
-                        </label>
+                 <div style={inputGroupStyle}>
+                        <label style={labelStyle}>Falla Reportada *</label>
+                        <textarea name="defecto_descripcion" value={formData.defecto_descripcion} onChange={handleChange} style={{...inputStyle, resize: 'vertical', minHeight: '100px'}} placeholder="Describa el defecto detalladamente..." required />
                     </div>
-                </div>
             </div>
         </div>
 
-        <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem' }}>
-            <button type="button" onClick={() => navigate('/')} className="btn" style={{ padding: '1rem', fontSize: '1rem', background: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}>
-                <X size={20} /> Cancelar
-            </button>
-            <button type="submit" disabled={loading} className="btn btn-primary" style={{ padding: '1rem', fontSize: '1rem', justifyContent: 'center' }}>
-                {loading ? "Registrando..." : <><Save size={20} /> Registrar Garantía</>}
-            </button>
+        {/* COLUMNA DERECHA */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
+            
+            {/* DATOS CLIENTE (Tarjeta limpia) */}
+            <div className="card">
+                 <h3 style={sectionTitleStyle}><User size={20} color="#64748b"/> Cliente</h3>
+                 <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Nombre</label>
+                    <input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} style={inputStyle} placeholder="Opcional" />
+                 </div>
+                  <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Teléfono</label>
+                    <input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} style={inputStyle} placeholder="Opcional" />
+                 </div>
+            </div>
+
+            {/* BOTONES */}
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="button" onClick={() => navigate('/processes')} className="btn btn-secondary" disabled={loading} style={{ flex: 1, justifyContent: 'center', height: '45px' }}>
+                    <X size={18} /> Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 2, justifyContent: 'center', background: '#ea580c', border: 'none', height: '45px' }}>
+                    {loading ? 'Registrando...' : <><Save size={18} /> Registrar Garantía</>}
+                </button>
+            </div>
+
         </div>
       </form>
     </div>
