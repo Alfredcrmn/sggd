@@ -59,7 +59,7 @@ const VendorHandover = ({ table, id, onUpdate }) => {
       
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div>
-            <label className="form-label">Nombre del Vendedor (Proveedor)</label>
+            <label className="form-label">Nombre del Vendedor</label>
             <input required type="text" className="form-input" 
                 placeholder="Nombre completo"
                 value={form.vendedor_nombre}

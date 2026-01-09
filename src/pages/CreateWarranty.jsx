@@ -13,6 +13,9 @@ const CreateWarranty = () => {
   // Catálogos
   const [sucursales, setSucursales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  
+  // Estado para controlar bloqueo de sucursal
+  const [isBranchLocked, setIsBranchLocked] = useState(false);
 
   // Estado del formulario
   const [formData, setFormData] = useState({
@@ -27,26 +30,39 @@ const CreateWarranty = () => {
     defecto_descripcion: "",
   });
 
-  // Cargar catálogos (CORREGIDO: Sin filtros .eq para evitar error 400)
+  // Cargar catálogos y perfil
   useEffect(() => {
-    const fetchCatalogs = async () => {
+    const fetchInitialData = async () => {
       try {
-        // Quitamos .eq("activa", true) por seguridad
-        const { data: sucData, error: sucError } = await supabase.from("sucursales").select("*");
-        if (sucError) console.error("Error sucursales:", sucError.message);
+        // 1. Catálogos
+        const { data: sucData } = await supabase.from("sucursales").select("*");
         setSucursales(sucData || []);
 
-        // Quitamos .eq("activo", true) por seguridad
-        const { data: provData, error: provError } = await supabase.from("proveedores").select("*");
-        if (provError) console.error("Error proveedores:", provError.message);
+        const { data: provData } = await supabase.from("proveedores").select("*");
         setProveedores(provData || []);
         
+        // 2. Perfil para Auto-asignar
+        if (user) {
+            const { data: perfil } = await supabase
+                .from('perfiles')
+                .select('rol, sucursal_id')
+                .eq('id', user.id)
+                .single();
+            
+            if (perfil) {
+                // Si NO es admin y tiene sucursal, la asignamos y bloqueamos
+                if (perfil.rol !== 'admin' && perfil.sucursal_id) {
+                    setFormData(prev => ({ ...prev, sucursal_id: perfil.sucursal_id }));
+                    setIsBranchLocked(true);
+                }
+            }
+        }
       } catch (error) {
-        console.error("Error general cargando catálogos:", error);
+        console.error("Error general cargando datos:", error);
       }
     };
-    fetchCatalogs();
-  }, []);
+    fetchInitialData();
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -114,15 +130,35 @@ const CreateWarranty = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
                     <div style={inputGroupStyle}>
                         <label style={labelStyle}>Folio Ticket *</label>
-                        <input type="text" name="folio_ticket" value={formData.folio_ticket} onChange={handleChange} style={inputStyle} placeholder="Ej: A-12345" required />
+                        <div style={{ position: 'relative' }}>
+                            <Ticket size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                            <input type="text" name="folio_ticket" value={formData.folio_ticket} onChange={handleChange} style={{...inputStyle, paddingLeft: '34px'}} placeholder="Ej: A-12345" required />
+                        </div>
                     </div>
+                    
+                    {/* SUCURSAL AUTO-ASIGNADA */}
                     <div style={inputGroupStyle}>
                         <label style={labelStyle}>Sucursal *</label>
-                        <select name="sucursal_id" value={formData.sucursal_id} onChange={handleChange} style={inputStyle} required>
-                            <option value="">Seleccione...</option>
-                            {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                        </select>
+                        <div style={{ position: 'relative' }}>
+                            <select 
+                                name="sucursal_id" 
+                                value={formData.sucursal_id} 
+                                onChange={handleChange} 
+                                style={{
+                                    ...inputStyle, 
+                                    paddingLeft: '34px',
+                                    backgroundColor: isBranchLocked ? '#f1f5f9' : 'white',
+                                    cursor: isBranchLocked ? 'not-allowed' : 'pointer'
+                                }} 
+                                disabled={isBranchLocked}
+                                required
+                            >
+                                <option value="">Seleccione...</option>
+                                {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                            </select>
+                        </div>
                     </div>
+
                     <div style={inputGroupStyle}>
                         <label style={labelStyle}>Proveedor *</label>
                         <select name="proveedor_id" value={formData.proveedor_id} onChange={handleChange} style={inputStyle} required>
@@ -143,13 +179,16 @@ const CreateWarranty = () => {
                     </div>
                     <div style={inputGroupStyle}>
                         <label style={labelStyle}>SKU / Clave</label>
-                        <input type="text" name="producto_clave" value={formData.producto_clave} onChange={handleChange} style={inputStyle} placeholder="Clave..." />
+                        <div style={{ position: 'relative' }}>
+                            <Hash size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                            <input type="text" name="producto_clave" value={formData.producto_clave} onChange={handleChange} style={{...inputStyle, paddingLeft: '34px'}} placeholder="Clave..." />
+                        </div>
                     </div>
                     <div style={inputGroupStyle}>
-                        <label style={labelStyle}>Valor Factura</label>
+                        <label style={labelStyle}>Valor</label>
                         <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }}>$</span>
-                            <input type="number" name="factura_valor" value={formData.factura_valor} onChange={handleChange} style={{...inputStyle, paddingLeft: '25px'}} placeholder="0.00" step="0.01" />
+                            <DollarSign size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                            <input type="number" name="factura_valor" value={formData.factura_valor} onChange={handleChange} style={{...inputStyle, paddingLeft: '34px'}} placeholder="0.00" step="0.01" />
                         </div>
                     </div>
                 </div>
@@ -168,11 +207,11 @@ const CreateWarranty = () => {
                  <h3 style={sectionTitleStyle}><User size={20} color="#64748b"/> Cliente</h3>
                  <div style={inputGroupStyle}>
                     <label style={labelStyle}>Nombre</label>
-                    <input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} style={inputStyle} placeholder="Nombre del cliente" />
+                    <input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} style={inputStyle} placeholder="Nombre del Cliente" />
                  </div>
                   <div style={inputGroupStyle}>
                     <label style={labelStyle}>Teléfono</label>
-                    <input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} style={inputStyle} placeholder="Teléfono del cliente" />
+                    <input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} style={inputStyle} placeholder="Teléfono del Cliente" />
                  </div>
             </div>
 

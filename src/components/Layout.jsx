@@ -1,13 +1,46 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabase/client";
-// 1. Importamos los íconos profesionales
 import { LayoutDashboard, ShieldCheck, Undo2, FileText, Settings, LogOut, UserCircle } from "lucide-react";
 import "./Layout.css"; 
 
 const Layout = () => {
   const { user } = useAuth();
-  const username = user?.user_metadata?.username || "Usuario";
+  
+  // 1. Estados para Rol y Nombre
+  const [isAdmin, setIsAdmin] = useState(false);
+  // Intentamos leer el nombre de los metadatos primero (rápido), si no, esperamos a la BD
+  const [displayName, setDisplayName] = useState(user?.user_metadata?.nombre_completo || "Usuario");
+
+  // 2. Efecto para consultar datos del perfil (Rol y Nombre real)
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('perfiles')
+          .select('rol, nombre_completo') // <--- AQUI TRAEMOS EL NOMBRE TAMBIÉN
+          .eq('id', user.id)
+          .single();
+        
+        if (data) {
+          // Lógica de Admin
+          setIsAdmin(data.rol === 'admin');
+
+          // Lógica de Nombre (Prioridad a la base de datos)
+          if (data.nombre_completo) {
+            setDisplayName(data.nombre_completo);
+          }
+        }
+      } catch (error) {
+        console.error("Error verificando perfil en Layout:", error);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -18,7 +51,6 @@ const Layout = () => {
       {/* SIDEBAR OSCURO */}
       <aside className="sidebar">
         <div className="brand-area">
-          {/* El punto naranja usa tu variable CSS */}
           <h1 className="brand-title">FERRETODO<span className="text-orange">.</span></h1>
           <p className="brand-subtitle">Gestión de Garantías</p>
         </div>
@@ -30,7 +62,6 @@ const Layout = () => {
             <span>Dashboard</span>
           </NavLink>
           
-          {/* Separador - Grupo "Registrar" */}
           <div className="nav-group-label">
             Registrar
           </div>
@@ -55,11 +86,13 @@ const Layout = () => {
             <span>Historial</span>
           </NavLink>
 
-          {/* Admin */}
-          <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
-            <Settings size={20} />
-            <span>Admin</span>
-          </NavLink>
+          {/* Solo mostramos Admin si isAdmin es true */}
+          {isAdmin && (
+            <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+              <Settings size={20} />
+              <span>Admin</span>
+            </NavLink>
+          )}
         </nav>
 
         {/* Footer del Sidebar */}
@@ -68,7 +101,8 @@ const Layout = () => {
             <UserCircle size={32} className="user-avatar" />
             <div className="user-text">
                 <small>Hola,</small>
-                <strong>{username}</strong>
+                {/* CAMBIO AQUÍ: Usamos displayName en lugar de username */}
+                <strong style={{ textTransform: 'capitalize' }}>{displayName}</strong>
             </div>
           </div>
           <button onClick={handleLogout} className="logout-btn">

@@ -6,7 +6,8 @@ import {
   ShieldCheck, 
   Undo2, 
   Eye, 
-  XCircle
+  XCircle,
+  Building2
 } from "lucide-react";
 
 const ProcessList = () => {
@@ -25,13 +26,36 @@ const ProcessList = () => {
   const [branches, setBranches] = useState([]);
   const [typeFilter, setTypeFilter] = useState("todos");
 
+  // --- ESTADO DE ROL ---
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userBranchId, setUserBranchId] = useState(null);
+
   useEffect(() => {
+    checkUserRole();
     fetchBranches();
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [statusFilter]);
+    if (userBranchId || isAdmin) {
+        fetchData();
+    }
+  }, [statusFilter, isAdmin, userBranchId]);
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: perfil } = await supabase.from('perfiles').select('rol, sucursal_id').eq('id', user.id).single();
+        if (perfil) {
+            const esAdmin = perfil.rol === 'admin';
+            setIsAdmin(esAdmin);
+            setUserBranchId(perfil.sucursal_id);
+
+            if (!esAdmin && perfil.sucursal_id) {
+                setBranchFilter(perfil.sucursal_id.toString());
+            }
+        }
+    }
+  };
 
   const fetchBranches = async () => {
     const { data } = await supabase.from('sucursales').select('id, nombre');
@@ -54,14 +78,19 @@ const ProcessList = () => {
         queryD = queryD.eq('estatus', statusFilter);
       }
 
+      if (!isAdmin && userBranchId) {
+        queryG = queryG.eq('sucursal_id', userBranchId);
+        queryD = queryD.eq('sucursal_id', userBranchId);
+      }
+
       const [resG, resD] = await Promise.all([queryG, queryD]);
 
       if (resG.error) throw resG.error;
       if (resD.error) throw resD.error;
 
       const combined = [
-        ...(resG.data || []).map(i => ({ ...i, type: 'garantias' })),
-        ...(resD.data || []).map(i => ({ ...i, type: 'devoluciones' }))
+        ...(resG.data || []).map(i => ({ ...i, type: 'garantias', folio: i.folio })),
+        ...(resD.data || []).map(i => ({ ...i, type: 'devoluciones', folio: i.folio }))
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       setData(combined);
@@ -78,43 +107,65 @@ const ProcessList = () => {
     setSearchParams({ status: newStatus });
   };
 
-  // --- LÓGICA DE FILTRADO ---
   const filteredData = data.filter(item => {
     const matchesText = 
-      item.folio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.producto_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.folio || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.producto_nombre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.proveedores?.nombre || "").toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesBranch = branchFilter === "todos" || item.sucursales?.id.toString() === branchFilter;
+    const matchesBranch = isAdmin 
+        ? (branchFilter === "todos" || item.sucursales?.id.toString() === branchFilter)
+        : true; 
+
     const matchesType = typeFilter === "todos" || item.type === typeFilter;
 
     return matchesText && matchesBranch && matchesType;
   });
 
-  const getStatusColor = (status) => {
-    if (status === 'cerrado') return 'badge-closed';
-    if (status === 'pendiente_validacion') return 'badge-pending';
-    return 'badge-active';
+  // --- LÓGICA DE COLORES UNIFICADA ---
+  const getBadgeStyle = (status) => {
+    const colors = {
+        creado: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }, // Naranja
+        activo: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }, // Naranja
+        asignar_folio_sicar: { bg: '#e0e7ff', color: '#1e3a8a', border: '#c7d2fe' }, // Azul Marino
+        con_proveedor: { bg: '#f3e8ff', color: '#7e22ce', border: '#d8b4fe' }, // Morado
+        por_aprobar: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // Verde
+        pendiente_cierre: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // Verde
+        listo_para_entrega: { bg: '#fef9c3', color: '#a16207', border: '#fde047' }, // Amarillo
+        cerrado: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' }, // Rojo
+    };
+
+    const style = colors[status] || { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' };
+
+    return {
+        backgroundColor: style.bg,
+        color: style.color,
+        border: `1px solid ${style.border}`,
+        whiteSpace: 'nowrap',
+        textTransform: 'capitalize'
+    };
   };
 
   return (
-    <div className="container">
+    <div className="container" style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       
       {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexShrink: 0 }}>
         <div>
           <h1>Historial de Procesos</h1>
-          <p className="text-sm">Gestión unificada de garantías y devoluciones.</p>
+          <p className="text-sm">
+            {isAdmin 
+                ? "Gestión unificada de todas las sucursales." 
+                : "Gestión de procesos de tu sucursal."}
+          </p>
         </div>
       </div>
 
       {/* BARRA DE HERRAMIENTAS */}
-      <div className="card" style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', flexShrink: 0 }}>
         
-        {/* FILA 1: FILTROS (Distribución equitativa para evitar amontonamiento) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
-            
-            {/* Buscador (Sin Lupa) */}
+        {/* FILTROS SUPERIORES */}
+        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1.5rem' }}>
             <div>
                 <input 
                   type="text" 
@@ -124,8 +175,6 @@ const ProcessList = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-
-            {/* Filtro Tipo (Limpio) */}
             <div>
                 <select 
                     className="form-select" 
@@ -137,28 +186,31 @@ const ProcessList = () => {
                     <option value="devoluciones">Solo Devoluciones</option>
                 </select>
             </div>
-
-            {/* Filtro Sucursal (Limpio) */}
-            <div>
-                <select 
-                    className="form-select"
-                    value={branchFilter}
-                    onChange={(e) => setBranchFilter(e.target.value)}
-                >
-                    <option value="todos">Todas las Sucursales</option>
-                    {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.nombre}</option>
-                    ))}
-                </select>
-            </div>
+            
+            {isAdmin && (
+                <div>
+                    <select 
+                        className="form-select"
+                        value={branchFilter}
+                        onChange={(e) => setBranchFilter(e.target.value)}
+                    >
+                        <option value="todos">Todas las Sucursales</option>
+                        {branches.map(b => (
+                            <option key={b.id} value={b.id}>{b.nombre}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
         </div>
 
-        {/* FILA 2: TABS DE ESTATUS */}
+        {/* TABS ESTATUS (AGREGADO ASIGNAR FOLIO) */}
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', borderBottom: '1px solid #f1f5f9' }}>
             {[
                 { id: 'todos', label: 'Todos' },
-                { id: 'pendiente_validacion', label: 'Por Validar' },
-                { id: 'activo', label: 'En Proceso' },
+                { id: 'asignar_folio_sicar', label: 'Asignar Folio SICAR' }, // NUEVO FILTRO
+                { id: 'por_aprobar', label: 'Por Aprobar' },
+                { id: 'con_proveedor', label: 'Con Proveedor' },
+                { id: 'listo_para_entrega', label: 'Listos para Entrega' },
                 { id: 'cerrado', label: 'Cerrados' }
             ].map(tab => (
                 <button
@@ -182,7 +234,7 @@ const ProcessList = () => {
       </div>
 
       {/* TABLA DE RESULTADOS */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {loading ? (
            <div className="p-8 text-center">Cargando historial...</div>
         ) : filteredData.length === 0 ? (
@@ -198,9 +250,9 @@ const ProcessList = () => {
               </button>
            </div>
         ) : (
-           <div style={{ overflowX: 'auto' }}>
+           <div style={{ flex: 1, overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b' }}>
                   <th style={thStyle}>Tipo</th>
                   <th style={thStyle}>Folio</th>
@@ -230,22 +282,24 @@ const ProcessList = () => {
                     <td style={tdStyle}>
                       {item.producto_nombre}
                     </td>
-                    {/* INFO sin icono de camión */}
                     <td style={tdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.8rem' }}>
                             <div style={{ fontWeight: '500', color: '#334155' }}>
                                 {item.proveedores?.nombre || "N/A"}
                             </div>
-                            <span style={{ color: '#94a3b8' }}>{item.sucursales?.nombre}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#94a3b8' }}>
+                                {isAdmin && <Building2 size={12} />}
+                                <span>{item.sucursales?.nombre}</span>
+                            </div>
                         </div>
                     </td>
-                    {/* FECHA sin icono de calendario */}
                     <td style={{ ...tdStyle, color: '#64748b', fontSize: '0.85rem' }}>
                         {new Date(item.created_at).toLocaleDateString()}
                     </td>
                     <td style={tdStyle}>
-                      <span className={`badge ${getStatusColor(item.estatus)}`}>
-                        {item.estatus.replace('_', ' ')}
+                      {/* APLICACIÓN DE ESTILO PERSONALIZADO */}
+                      <span className="badge" style={getBadgeStyle(item.estatus)}>
+                        {item.estatus.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td style={tdStyle}>

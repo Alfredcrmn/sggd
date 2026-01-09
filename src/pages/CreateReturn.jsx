@@ -13,7 +13,7 @@ import {
   Hash, 
   Ticket, 
   X,
-  Store 
+  Store // Icono para Sucursal
 } from "lucide-react";
 
 const CreateReturn = () => {
@@ -24,8 +24,9 @@ const CreateReturn = () => {
   const [sucursales, setSucursales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   
-  // Eliminado estado 'file'
-  
+  // Estado para controlar si bloqueamos la sucursal (Cajeros)
+  const [isBranchLocked, setIsBranchLocked] = useState(false);
+
   const [formData, setFormData] = useState({
     folio: "",
     sucursal_id: "",
@@ -39,18 +40,36 @@ const CreateReturn = () => {
   });
   
   useEffect(() => {
-    const fetchCatalogos = async () => {
+    const fetchInitialData = async () => {
       try {
+        // 1. Cargar Catálogos
         const { data: sucs } = await supabase.from('sucursales').select('*');
         const { data: provs } = await supabase.from('proveedores').select('*');
         setSucursales(sucs || []);
         setProveedores(provs || []);
+
+        // 2. Cargar Perfil del Usuario para Auto-asignar Sucursal
+        if (user) {
+            const { data: perfil } = await supabase
+                .from('perfiles')
+                .select('rol, sucursal_id')
+                .eq('id', user.id)
+                .single();
+            
+            if (perfil) {
+                // Si NO es admin y TIENE sucursal asignada -> Bloqueamos
+                if (perfil.rol !== 'admin' && perfil.sucursal_id) {
+                    setFormData(prev => ({ ...prev, sucursal_id: perfil.sucursal_id }));
+                    setIsBranchLocked(true);
+                }
+            }
+        }
       } catch (error) {
         console.error(error);
       }
     };
-    fetchCatalogos();
-  }, []);
+    fetchInitialData();
+  }, [user]);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -58,17 +77,15 @@ const CreateReturn = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Validaciones básicas (Ya no validamos 'file')
-    if (!formData.folio || !formData.sucursal_id || !formData.proveedor_id || !formData.producto_nombre) {
+    if (!formData.folio || !formData.sucursal_id || !formData.proveedor_id || !formData.producto_nombre || !formData.razon_devolucion) {
         return alert("Por favor complete los campos obligatorios.");
     }
 
     setLoading(true);
     try {
-        // Insertar registro DIRECTO (Sin subir imagen)
         const { error: insertError } = await supabase.from('devoluciones').insert({
             folio: formData.folio,
-            sucursal_id: formData.sucursal_id,
+            sucursal_id: formData.sucursal_id, // Importante para RLS
             proveedor_id: formData.proveedor_id,
             producto_nombre: formData.producto_nombre,
             producto_clave: formData.producto_clave,
@@ -76,7 +93,6 @@ const CreateReturn = () => {
             razon_devolucion: formData.razon_devolucion,
             vendedor_nombre: formData.vendedor_nombre,
             vendedor_telefono: formData.vendedor_telefono,
-            // evidencia_entrega_url se omite (será NULL)
             estatus: 'creado',
             solicitado_por_id: user.id
         });
@@ -125,16 +141,34 @@ const CreateReturn = () => {
                         <label style={labelStyle}>Folio Ticket *</label>
                         <div style={{ position: 'relative' }}>
                             <Ticket size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
-                            <input type="text" name="folio" className="form-input" style={{...inputStyle, paddingLeft: '34px'}} placeholder="Ej: F-99887" onChange={handleInputChange} required />
+                            <input type="text" name="folio" style={{...inputStyle, paddingLeft: '34px'}} placeholder="Ej: F-99887" onChange={handleInputChange} required />
                         </div>
                     </div>
+                    
+                    {/* SUCURSAL AUTO-ASIGNADA */}
                     <div style={inputGroupStyle}>
                         <label style={labelStyle}>Sucursal *</label>
-                        <select name="sucursal_id" style={inputStyle} onChange={handleInputChange} required>
-                            <option value="">Seleccione...</option>
-                            {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                        </select>
+                        <div style={{ position: 'relative' }}>
+                            <select 
+                                name="sucursal_id" 
+                                style={{
+                                    ...inputStyle, 
+                                    paddingLeft: '34px',
+                                    // Si está bloqueada, fondo gris
+                                    backgroundColor: isBranchLocked ? '#f1f5f9' : 'white',
+                                    cursor: isBranchLocked ? 'not-allowed' : 'pointer'
+                                }} 
+                                onChange={handleInputChange} 
+                                value={formData.sucursal_id} // Controlado por estado
+                                disabled={isBranchLocked}    // Bloqueado si es cajero
+                                required
+                            >
+                                <option value="">Seleccione...</option>
+                                {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                            </select>
+                        </div>
                     </div>
+
                     <div style={inputGroupStyle}>
                         <label style={labelStyle}>Proveedor *</label>
                         <select name="proveedor_id" style={inputStyle} onChange={handleInputChange} required>
@@ -161,7 +195,7 @@ const CreateReturn = () => {
                         </div>
                     </div>
                     <div style={inputGroupStyle}>
-                        <label style={labelStyle}>Valor</label>
+                        <label style={labelStyle}>Valor en Factura</label>
                         <div style={{ position: 'relative' }}>
                             <DollarSign size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
                             <input type="number" name="producto_costo" style={{...inputStyle, paddingLeft: '34px'}} placeholder="0.00" onChange={handleInputChange} />
@@ -170,7 +204,7 @@ const CreateReturn = () => {
                 </div>
                 <div style={inputGroupStyle}>
                      <label style={labelStyle}>Razón de Devolución *</label>
-                     <textarea name="razon_devolucion" style={{...inputStyle, resize: 'vertical', minHeight: '80px'}} placeholder="Describa el motivo..." onChange={handleInputChange} required></textarea>
+                     <textarea name="razon_devolucion" style={{...inputStyle, resize: 'vertical', minHeight: '100px'}} placeholder="Describa el motivo..." onChange={handleInputChange} required></textarea>
                 </div>
             </div>
         </div>
@@ -190,8 +224,6 @@ const CreateReturn = () => {
                     <input type="tel" name="vendedor_telefono" style={inputStyle} placeholder="Teléfono" onChange={handleInputChange} required />
                 </div>
             </div>
-
-            {/* SE ELIMINÓ LA TARJETA DE EVIDENCIA */}
 
             {/* BOTONES */}
             <div style={{ display: 'flex', gap: '1rem' }}>

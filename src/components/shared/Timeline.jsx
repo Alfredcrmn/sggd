@@ -1,143 +1,127 @@
-import { Check, Circle, Clock, AlertCircle } from "lucide-react";
+import { Check, Clock, AlertCircle } from "lucide-react";
 
 const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
-  const isGarantia = type === 'garantia';
-
-  const stepsGarantia = [
-    { key: 'creado', label: 'Creada' },
-    { key: 'con_proveedor', label: 'Con Proveedor' },
-    { key: 'por_aprobar', label: 'Por Aprobar' },
-    { key: 'listo_para_entrega', label: 'Entregar Cliente' },
-    { key: 'pendiente_cierre', label: 'Validación Final' },
-    { key: 'cerrado', label: 'Cerrado' },
+  
+  // Definimos los pasos lógicos del proceso
+  const steps = [
+    { label: "Creada", status: "creado" },
+    { label: "Folio SICAR", status: "asignar_folio_sicar" }, // NUEVO PASO
+    { label: "Entrega Prov.", status: "pendiente_validacion" }, // Este paso usa VendorHandover
+    { label: "Resolución", status: "con_proveedor" }, // Engloba con_proveedor y por_aprobar
+    { label: "Entrega Cliente", status: "listo_para_entrega" },
+    { label: "Cerrado", status: "cerrado" }
   ];
 
-  const stepsDevolucion = [
-    { key: 'creado', label: 'Creada' },
-    { key: 'con_proveedor', label: 'Con Proveedor' },
-    { key: 'pendiente_cierre', label: 'Por Cerrar' },
-    { key: 'cerrado', label: 'Cerrada' },
-  ];
+  // Función para determinar en qué índice numérico va el proceso actual
+  const getCurrentStepIndex = (status) => {
+    switch (status) {
+      case 'creado': return 0;
+      case 'asignar_folio_sicar': return 1;
 
-  const steps = isGarantia ? stepsGarantia : stepsDevolucion;
-  
-  // Normalización
-  const mapStatus = (s) => s === 'activo' ? 'creado' : s;
-  
-  // 1. Estado REAL (Base de Datos) - Controla qué checks están marcados
-  const dbStatusKey = mapStatus(currentStatus);
-  const activeStepIndex = steps.findIndex(s => s.key === dbStatusKey);
-  const safeActiveIndex = activeStepIndex === -1 ? 0 : activeStepIndex;
+      case 'activo': 
+      case 'pendiente_validacion': return 2;
 
-  // 2. Estado VISTO (Navegación) - Controla el anillo de selección
-  const currentViewKey = mapStatus(viewStep || currentStatus);
+      case 'con_proveedor': 
+      case 'por_aprobar': 
+      case 'pendiente_cierre': return 3; // Todos estos son fase de resolución/espera
+      case 'listo_para_entrega': return 4;
+      case 'cerrado': return 5;
+      default: return 0;
+    }
+  };
+
+  const currentStepIndex = getCurrentStepIndex(currentStatus);
+  const viewStepIndex = viewStep ? getCurrentStepIndex(viewStep) : currentStepIndex;
 
   return (
-    <>
-      {/* Estilo para ocultar scrollbar en Chrome/Safari */}
-      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', margin: '20px 0' }}>
+      
+      {/* Línea de fondo (gris) */}
+      <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: '#e2e8f0', zIndex: 0, transform: 'translateY(-50%)' }} />
 
-      <div 
-        className="hide-scrollbar"
-        style={{ 
-            padding: '2rem 4px 1.5rem 4px', // Padding lateral mínimo para evitar corte del anillo
-            width: '100%', 
-            overflowX: 'auto',
-            scrollbarWidth: 'none', // Ocultar en Firefox
-            msOverflowStyle: 'none' // Ocultar en IE/Edge
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', minWidth: '600px' }}>
-          
-          {/* LÍNEA GRIS (Fondo) */}
-          <div style={{ position: 'absolute', top: '15px', left: '0', right: '0', height: '4px', background: '#e2e8f0', zIndex: 0 }} />
-          
-          {/* LÍNEA DE COLOR (Progreso Real) */}
-          <div style={{ 
-              position: 'absolute', top: '15px', left: '0', height: '4px', background: isGarantia ? '#f97316' : '#0ea5e9', zIndex: 0,
-              width: `${(safeActiveIndex / (steps.length - 1)) * 100}%`,
-              transition: 'width 0.5s ease'
-          }} />
+      {/* Línea de progreso (color) */}
+      <div style={{ 
+          position: 'absolute', 
+          top: '50%', 
+          left: 0, 
+          height: '4px', 
+          background: type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9', 
+          zIndex: 0, 
+          transform: 'translateY(-50%)',
+          width: `${(currentStepIndex / (steps.length - 1)) * 100}%`,
+          transition: 'width 0.5s ease'
+      }} />
 
-          {steps.map((step, index) => {
-            // Lógica BD
-            const isCompleted = index < safeActiveIndex;
-            const isCurrentReal = index === safeActiveIndex;
-            const isPendingState = step.key.includes('pendiente') || step.key === 'por_aprobar';
+      {steps.map((step, index) => {
+        const isCompleted = index <= currentStepIndex;
+        const isCurrent = index === currentStepIndex;
+        const isViewed = index === viewStepIndex;
+
+        let circleColor = '#e2e8f0'; // Gris por defecto
+        let iconColor = '#94a3b8';
+        
+        if (isCompleted) {
+            circleColor = type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9';
+            iconColor = 'white';
+        }
+
+        // Estilo especial para el paso que estamos "mirando" (si el usuario hizo clic en historial)
+        const isSelectedView = viewStep && index === viewStepIndex;
+
+        return (
+          <div 
+            key={index} 
+            onClick={() => {
+                // Solo permitimos navegar a pasos anteriores o al actual
+                if (index <= currentStepIndex && onStepClick) {
+                    // Mapeamos el label del timeline de regreso a un status "genérico" para que WarrantyDetail sepa qué mostrar
+                    onStepClick(step.status); 
+                }
+            }}
+            style={{ 
+                position: 'relative', 
+                zIndex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                cursor: index <= currentStepIndex ? 'pointer' : 'default' 
+            }}
+          >
+            <div style={{ 
+                width: '32px', 
+                height: '32px', 
+                borderRadius: '50%', 
+                background: circleColor, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                border: isSelectedView ? '3px solid #1e293b' : '3px solid white', // Resaltar selección
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                transition: 'all 0.3s'
+            }}>
+                {isCompleted ? (
+                    isCurrent ? <Clock size={16} color="white" /> : <Check size={16} color="white" />
+                ) : (
+                    <div style={{ width: '8px', height: '8px', background: '#cbd5e1', borderRadius: '50%' }} />
+                )}
+            </div>
             
-            // Lógica UI
-            const isViewing = step.key === currentViewKey;
-            const isClickable = index <= safeActiveIndex;
-
-            // Colores
-            let bgColor = '#fff';
-            let borderColor = '#e2e8f0';
-            let iconColor = '#94a3b8';
-            let IconComp = Circle;
-
-            const brandColor = isGarantia ? '#f97316' : '#0ea5e9';
-
-            if (isCompleted || isCurrentReal) {
-              if (isCurrentReal && isPendingState) {
-                  borderColor = '#eab308'; // Amarillo alerta
-                  iconColor = '#eab308';
-                  IconComp = AlertCircle;
-              } else {
-                  borderColor = brandColor;
-                  if (isCompleted) {
-                      bgColor = brandColor;
-                      iconColor = '#fff';
-                      IconComp = Check;
-                  } else {
-                      iconColor = brandColor;
-                      IconComp = Clock;
-                  }
-              }
-            }
-
-            return (
-              <div 
-                  key={step.key} 
-                  onClick={() => isClickable && onStepClick && onStepClick(step.key)}
-                  style={{ 
-                      position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '80px',
-                      cursor: isClickable ? 'pointer' : 'default',
-                      opacity: isClickable ? 1 : 0.5,
-                      transform: isViewing ? 'scale(1.05)' : 'scale(1)',
-                      transition: 'all 0.3s ease'
-                  }}
-              >
-                {/* CÍRCULO CON ANILLO DE ENFOQUE */}
-                <div style={{ 
-                    width: '34px', height: '34px', borderRadius: '50%', 
-                    background: bgColor, border: `3px solid ${borderColor}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.3s ease',
-                    // ANILLO VISUAL (Halo)
-                    boxShadow: isViewing 
-                      ? `0 0 0 4px ${isGarantia ? 'rgba(249, 115, 22, 0.2)' : 'rgba(14, 165, 233, 0.2)'}` 
-                      : 'none'
-                }}>
-                    <IconComp size={18} color={iconColor} strokeWidth={2.5} />
-                </div>
-
-                {/* TEXTO DESTACADO */}
-                <div style={{ 
-                    marginTop: '8px', fontSize: '0.70rem', textAlign: 'center',
-                    fontWeight: isViewing ? '800' : (isCurrentReal ? '600' : 'normal'),
-                    color: isViewing ? '#0f172a' : (isCurrentReal ? '#334155' : '#94a3b8'),
-                    textDecoration: isViewing ? 'underline' : 'none',
-                    textUnderlineOffset: '4px',
-                    textDecorationColor: isViewing ? brandColor : 'transparent'
-                }}>
-                    {step.label}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </>
+            <span style={{ 
+                marginTop: '8px', 
+                fontSize: '0.75rem', 
+                fontWeight: isCurrent ? '700' : '500', 
+                color: isCurrent ? '#1e293b' : '#94a3b8',
+                position: 'absolute',
+                top: '35px',
+                width: '100px',
+                textAlign: 'center'
+            }}>
+                {step.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 };
 

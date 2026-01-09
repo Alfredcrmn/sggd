@@ -7,11 +7,11 @@ const ProcessDetail = () => {
   const [searchParams] = useSearchParams();
   const type = searchParams.get("type"); 
 
-  if (type === 'garantias') {
+  if (type === 'garantia') {
     return <WarrantyDetail id={id} />;
   }
 
-  if (type === 'devoluciones') {
+  if (type === 'devolucion') {
     return <ReturnDetail id={id} />;
   }
 
