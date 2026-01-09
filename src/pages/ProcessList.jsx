@@ -88,9 +88,11 @@ const ProcessList = () => {
       if (resG.error) throw resG.error;
       if (resD.error) throw resD.error;
 
+      // CORRECCIÓN AQUÍ: Usamos SINGULAR ('garantia', 'devolucion')
+      // Esto suele arreglar el error de "Tipo no especificado" en la página de detalle
       const combined = [
-        ...(resG.data || []).map(i => ({ ...i, type: 'garantias', folio: i.folio })),
-        ...(resD.data || []).map(i => ({ ...i, type: 'devoluciones', folio: i.folio }))
+        ...(resG.data || []).map(i => ({ ...i, type: 'garantia', folio: i.folio })),
+        ...(resD.data || []).map(i => ({ ...i, type: 'devolucion', folio: i.folio }))
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       setData(combined);
@@ -117,7 +119,10 @@ const ProcessList = () => {
         ? (branchFilter === "todos" || item.sucursales?.id.toString() === branchFilter)
         : true; 
 
-    const matchesType = typeFilter === "todos" || item.type === typeFilter;
+    // Aquí ajustamos para que el filtro coincida con el singular que definimos arriba
+    const matchesType = typeFilter === "todos" || 
+                        (typeFilter === "garantias" && item.type === "garantia") ||
+                        (typeFilter === "devoluciones" && item.type === "devolucion");
 
     return matchesText && matchesBranch && matchesType;
   });
@@ -203,11 +208,13 @@ const ProcessList = () => {
             )}
         </div>
 
-        {/* TABS ESTATUS (AGREGADO ASIGNAR FOLIO) */}
+        {/* TABS ESTATUS (ACTUALIZADO CON CREADO Y ACTIVO) */}
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', borderBottom: '1px solid #f1f5f9' }}>
             {[
                 { id: 'todos', label: 'Todos' },
-                { id: 'asignar_folio_sicar', label: 'Asignar Folio SICAR' }, // NUEVO FILTRO
+                { id: 'creado', label: 'Creado' }, // NUEVO
+                { id: 'activo', label: 'Activo' }, // NUEVO
+                { id: 'asignar_folio_sicar', label: 'Asignar Folio SICAR' },
                 { id: 'por_aprobar', label: 'Por Aprobar' },
                 { id: 'con_proveedor', label: 'Con Proveedor' },
                 { id: 'listo_para_entrega', label: 'Listos para Entrega' },
@@ -269,11 +276,11 @@ const ProcessList = () => {
                     <td style={tdStyle}>
                        <div style={{ 
                           width: '32px', height: '32px', borderRadius: '8px', 
-                          background: item.type === 'garantias' ? '#fff7ed' : '#f0f9ff',
-                          color: item.type === 'garantias' ? 'var(--color-brand-primary)' : '#0ea5e9',
+                          background: item.type === 'garantia' ? '#fff7ed' : '#f0f9ff',
+                          color: item.type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9',
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
                        }}>
-                          {item.type === 'garantias' ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
+                          {item.type === 'garantia' ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
                        </div>
                     </td>
                     <td style={{ ...tdStyle, fontWeight: '600', color: 'var(--color-dark-bg)' }}>
@@ -297,7 +304,6 @@ const ProcessList = () => {
                         {new Date(item.created_at).toLocaleDateString()}
                     </td>
                     <td style={tdStyle}>
-                      {/* APLICACIÓN DE ESTILO PERSONALIZADO */}
                       <span className="badge" style={getBadgeStyle(item.estatus)}>
                         {item.estatus.replace(/_/g, ' ')}
                       </span>
