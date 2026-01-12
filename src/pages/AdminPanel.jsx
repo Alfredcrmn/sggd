@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
-// IMPORTANTE: Importamos createClient para el truco del cliente temporal
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../supabase/client";
-// Importamos useNavigate para expulsar intrusos
 import { useNavigate } from "react-router-dom"; 
 import { 
-  Users, History, Building2, UserCog, Lock, Search, Pencil, Save, Briefcase, UserPlus, X         
+  Users, History, Building2, UserCog, Lock, Search, Pencil, Save, Briefcase, UserPlus, X, Truck
 } from "lucide-react";
 
-// TUS CREDENCIALES
+import ProvidersTab from "../components/admin/ProvidersTab";
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const AdminPanel = () => {
+  const [activeTab, setActiveTab] = useState('users');
+
   const [users, setUsers] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,10 +34,8 @@ const AdminPanel = () => {
   });
   const [creating, setCreating] = useState(false);
   
-  // Hook de navegación para redireccionar
   const navigate = useNavigate();
 
-  // --- 1. BLOQUE DE SEGURIDAD (NUEVO) ---
   useEffect(() => {
     const verifyAdminAccess = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -46,7 +45,6 @@ const AdminPanel = () => {
             return;
         }
 
-        // Consultamos el rol en la tabla perfiles
         const { data: perfil, error } = await supabase
             .from('perfiles')
             .select('rol')
@@ -55,21 +53,15 @@ const AdminPanel = () => {
 
         if (error || !perfil || perfil.rol !== 'admin') {
             console.warn("Acceso denegado: Usuario no es administrador.");
-            // Si no es admin, lo sacamos al Dashboard normal
             navigate("/"); 
             return;
         }
 
-        // Si es admin, cargamos los datos
         fetchUsersAndBranches();
     };
 
     verifyAdminAccess();
   }, [navigate]);
-  // -------------------------------------
-
-  // NOTA: Quitamos el useEffect antiguo que solo llamaba a fetchUsersAndBranches()
-  // porque ahora esa llamada se hace DENTRO de verifyAdminAccess() si pasa la seguridad.
 
   const fetchUsersAndBranches = async () => {
     try {
@@ -79,12 +71,6 @@ const AdminPanel = () => {
       if (branchData) setSucursales(branchData);
     } catch (error) { console.error("Error:", error); } finally { setLoading(false); }
   };
-
-  // ... (El resto de tus funciones: handleSelectUser, startEditing, saveChanges, manualReset, openCreateModal, handleCreateUser) ...
-  // ... (SON IDÉNTICAS A LO QUE YA TIENES, NO CAMBIAN) ...
-  
-  // Copia aquí el resto de las funciones tal cual las tenías en la versión anterior.
-  // Solo modifiqué el useEffect del principio.
 
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
@@ -145,39 +131,26 @@ const AdminPanel = () => {
     try {
         const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: { 
-                persistSession: false,
-                autoRefreshToken: false,
-                detectSessionInUrl: false,
-                storageKey: 'temp_admin_key'
+                persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'temp_admin_key'
             }
         });
 
         const { data: authData, error: authError } = await tempClient.auth.signUp({
-            email: finalEmail,
-            password: newUser.password,
-            options: {
-                data: { nombre_completo: newUser.nombre_completo, username: cleanUsername }
-            }
+            email: finalEmail, password: newUser.password,
+            options: { data: { nombre_completo: newUser.nombre_completo, username: cleanUsername } }
         });
 
         if (authError) throw authError;
         if (!authData.user) throw new Error("No se pudo crear el usuario.");
 
         const newUserId = authData.user.id;
-        const { error: confirmError } = await supabase.rpc('admin_confirm_user', { target_user_id: newUserId });
-        if (confirmError) console.warn("No se pudo auto-confirmar email:", confirmError);
+        await supabase.rpc('admin_confirm_user', { target_user_id: newUserId });
 
         const { error: profileError } = await supabase.from('perfiles').insert({
-            id: newUserId,
-            nombre_completo: newUser.nombre_completo,
-            username: cleanUsername,
-            rol: finalRole,
-            sucursal_id: finalSucursal
+            id: newUserId, nombre_completo: newUser.nombre_completo, username: cleanUsername, rol: finalRole, sucursal_id: finalSucursal
         });
 
-        if (profileError) {
-            throw new Error("Usuario Auth creado, pero falló el Perfil: " + profileError.message);
-        }
+        if (profileError) throw new Error("Usuario Auth creado, pero falló el Perfil: " + profileError.message);
 
         alert(`✅ Usuario creado exitosamente: ${cleanUsername}`);
         setShowCreateModal(false);
@@ -195,74 +168,121 @@ const AdminPanel = () => {
     u.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
-  const getStatusColor = (status) => status === 'cerrado' ? 'badge-closed' : 'badge-active';
+
+  const tabBtnStyle = (tabName) => ({
+    padding: '10px 20px',
+    cursor: 'pointer',
+    borderBottom: activeTab === tabName ? '2px solid var(--color-brand-primary)' : '2px solid transparent',
+    color: activeTab === tabName ? 'var(--color-brand-primary)' : '#64748b',
+    fontWeight: activeTab === tabName ? 'bold' : 'normal',
+    display: 'flex', alignItems: 'center', gap: '8px',
+    background: 'none', border: 'none', borderBottom: activeTab === tabName ? '2px solid var(--color-brand-primary)' : '2px solid transparent'
+  });
 
   if (loading) return <div className="p-8">Verificando acceso...</div>;
 
   return (
     <div style={{ width: '100%', padding: '0 1rem', paddingBottom: '3rem', position: 'relative' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      
+      {/* HEADER PRINCIPAL */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ background: '#f1f5f9', padding: '8px', borderRadius: '8px' }}> <Users size={28} color="#475569" /> </div>
-            <div> <h1 style={{ fontSize: '1.5rem' }}>Panel de Administración</h1> <p className="text-sm">Gestión de roles, sucursales y accesos.</p> </div>
+            <div> <h1 style={{ fontSize: '1.5rem' }}>Panel de Administración</h1> <p className="text-sm">Gestión del sistema.</p> </div>
           </div>
-          <button onClick={openCreateModal} className="btn btn-primary"> <UserPlus size={18} /> Nuevo Usuario </button>
+          {/* Eliminamos el botón de aquí para bajarlo */}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="card" style={{ padding: '1rem' }}>
-                <div style={{ position: 'relative' }}>
+      {/* TABS */}
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+          <button onClick={() => setActiveTab('users')} style={tabBtnStyle('users')}>
+            <Users size={18} /> Empleados
+          </button>
+          <button onClick={() => setActiveTab('providers')} style={tabBtnStyle('providers')}>
+            <Truck size={18} /> Proveedores
+          </button>
+      </div>
+
+      {/* === PESTAÑA USUARIOS === */}
+      {activeTab === 'users' && (
+        <>
+            {/* BARRA DE HERRAMIENTAS (Igual que en ProvidersTab) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative', width: '300px' }}>
                     <Search size={18} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
-                    <input type="text" placeholder="Buscar empleado..." className="form-input" style={{ paddingLeft: '2.2rem' }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar empleado..." 
+                        className="form-input" 
+                        style={{ paddingLeft: '2.2rem' }} 
+                        value={searchTerm} 
+                        onChange={(e) => setSearchTerm(e.target.value)} 
+                    />
                 </div>
+                <button onClick={openCreateModal} className="btn btn-primary">
+                    <UserPlus size={18} /> Nuevo Usuario
+                </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {filteredUsers.map((u) => (
-                    <div key={u.id} onClick={() => handleSelectUser(u)} className="card"
-                        style={{ cursor: 'pointer', border: selectedUser?.id === u.id ? '2px solid var(--color-brand-primary)' : '1px solid #e2e8f0', background: selectedUser?.id === u.id ? '#fff7ed' : 'white', transition: 'all 0.2s', padding: '1rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: selectedUser?.id === u.id ? 'var(--color-brand-primary)' : '#e2e8f0', color: selectedUser?.id === u.id ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}> <UserCog size={20} /> </div>
-                        <div style={{ overflow: 'hidden', flex: 1 }}> <div style={{ fontWeight: '700', color: 'var(--color-dark-bg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre_completo}</div> <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}> <span style={{ textTransform: 'uppercase', fontSize: '0.7rem', fontWeight: 'bold' }}>{u.rol}</span> {u.sucursales?.nombre && <span>• {u.sucursales.nombre}</span>} </div> </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div className="card" style={{ minHeight: '200px' }}>
-                {!selectedUser ? ( <div style={{ textAlign: 'center', color: '#94a3b8', padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}> <History size={48} color="#cbd5e1" style={{ marginBottom: '1rem' }} /> <p>Selecciona un empleado de la lista para ver detalles.</p> </div> ) : (
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
-                            <div> <h2 style={{ fontSize: '1.5rem', color: 'var(--color-dark-bg)', marginBottom: '4px' }}>{selectedUser.nombre_completo}</h2> <p style={{ color: '#64748b', fontSize: '0.9rem' }}>{selectedUser.email || selectedUser.username}</p> </div>
-                            {!isEditing && ( <button onClick={startEditing} className="btn btn-secondary"> <Pencil size={16} /> Editar Perfil </button> )}
-                        </div>
-                        {!isEditing ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                <div> <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Rol Asignado</label> <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: '500' }}> <Briefcase size={18} color="var(--color-brand-primary)" /> <span style={{ textTransform: 'capitalize' }}>{selectedUser.rol}</span> </div> </div>
-                                <div> <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Sucursal</label> <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: '500' }}> <Building2 size={18} color="var(--color-brand-primary)" /> <span>{selectedUser.sucursales?.nombre || "Sin Asignar"}</span> </div> </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
+                {/* COLUMNA IZQUIERDA: LISTA */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {/* Quitamos el card del buscador que estaba aquí */}
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
+                        {filteredUsers.map((u) => (
+                            <div key={u.id} onClick={() => handleSelectUser(u)} className="card"
+                                style={{ cursor: 'pointer', border: selectedUser?.id === u.id ? '2px solid var(--color-brand-primary)' : '1px solid #e2e8f0', background: selectedUser?.id === u.id ? '#fff7ed' : 'white', transition: 'all 0.2s', padding: '1rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: selectedUser?.id === u.id ? 'var(--color-brand-primary)' : '#e2e8f0', color: selectedUser?.id === u.id ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}> <UserCog size={20} /> </div>
+                                <div style={{ overflow: 'hidden', flex: 1 }}> <div style={{ fontWeight: '700', color: 'var(--color-dark-bg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre_completo}</div> <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}> <span style={{ textTransform: 'uppercase', fontSize: '0.7rem', fontWeight: 'bold' }}>{u.rol}</span> {u.sucursales?.nombre && <span>• {u.sucursales.nombre}</span>} </div> </div>
                             </div>
-                        ) : (
-                            <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '8px', border: '1px solid #fed7aa' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                                    <div> <label className="form-label">Rol</label> <select className="form-select" value={editForm.rol} onChange={(e) => setEditForm({...editForm, rol: e.target.value})}> <option value="cajero">Cajero</option> <option value="admin">Admin</option> </select> </div>
-                                    <div> <label className="form-label">Sucursal</label> <select className="form-select" value={editForm.sucursal_id || ""} onChange={(e) => setEditForm({...editForm, sucursal_id: e.target.value})}> <option value="">Sin Asignar</option> {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)} </select> </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* COLUMNA DERECHA: DETALLES */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div className="card" style={{ minHeight: '200px' }}>
+                        {!selectedUser ? ( <div style={{ textAlign: 'center', color: '#94a3b8', padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}> <History size={48} color="#cbd5e1" style={{ marginBottom: '1rem' }} /> <p>Selecciona un empleado de la lista para ver detalles.</p> </div> ) : (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
+                                    <div> <h2 style={{ fontSize: '1.5rem', color: 'var(--color-dark-bg)', marginBottom: '4px' }}>{selectedUser.nombre_completo}</h2> <p style={{ color: '#64748b', fontSize: '0.9rem' }}>{selectedUser.email || selectedUser.username}</p> </div>
+                                    {!isEditing && ( <button onClick={startEditing} className="btn btn-secondary"> <Pencil size={16} /> Editar Perfil </button> )}
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <button onClick={handleManualReset} className="btn" style={{ background: 'white', border: '1px solid #fda4af', color: '#be123c' }}> <Lock size={16} /> Cambiar Contraseña </button>
-                                    <div style={{ display: 'flex', gap: '10px' }}> <button onClick={() => setIsEditing(false)} className="btn btn-secondary"> Cancelar </button> <button onClick={saveChanges} className="btn btn-primary"> <Save size={16} /> Guardar Cambios </button> </div>
-                                </div>
+                                {!isEditing ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                        <div> <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Rol Asignado</label> <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: '500' }}> <Briefcase size={18} color="var(--color-brand-primary)" /> <span style={{ textTransform: 'capitalize' }}>{selectedUser.rol}</span> </div> </div>
+                                        <div> <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Sucursal</label> <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: '500' }}> <Building2 size={18} color="var(--color-brand-primary)" /> <span>{selectedUser.sucursales?.nombre || "Sin Asignar"}</span> </div> </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                            <div> <label className="form-label">Rol</label> <select className="form-select" value={editForm.rol} onChange={(e) => setEditForm({...editForm, rol: e.target.value})}> <option value="cajero">Cajero</option> <option value="admin">Admin</option> </select> </div>
+                                            <div> <label className="form-label">Sucursal</label> <select className="form-select" value={editForm.sucursal_id || ""} onChange={(e) => setEditForm({...editForm, sucursal_id: e.target.value})}> <option value="">Sin Asignar</option> {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)} </select> </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <button onClick={handleManualReset} className="btn" style={{ background: 'white', border: '1px solid #fda4af', color: '#be123c' }}> <Lock size={16} /> Cambiar Contraseña </button>
+                                            <div style={{ display: 'flex', gap: '10px' }}> <button onClick={() => setIsEditing(false)} className="btn btn-secondary"> Cancelar </button> <button onClick={saveChanges} className="btn btn-primary"> <Save size={16} /> Guardar Cambios </button> </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
-                )}
+                    {selectedUser && ( <div className="card"> <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}> <History size={20} color="#64748b" /> Historial Reciente </h3> 
+                            {userHistory.garantias.length === 0 && userHistory.devoluciones.length === 0 ? <div className="text-sm text-gray-400">Sin registros recientes.</div> : <div><div style={{marginBottom:'10px', fontWeight:'bold', fontSize:'0.8rem', color:'#94a3b8'}}>MOVIMIENTOS</div> <div className="text-sm">Se encontraron {userHistory.garantias.length} garantías y {userHistory.devoluciones.length} devoluciones.</div></div>}
+                    </div> )}
+                </div>
             </div>
-            {selectedUser && ( <div className="card"> <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}> <History size={20} color="#64748b" /> Historial Reciente </h3> 
-                     {/* Historial básico... */}
-                     {userHistory.garantias.length === 0 && userHistory.devoluciones.length === 0 ? <div className="text-sm text-gray-400">Sin registros recientes.</div> : <div><div style={{marginBottom:'10px', fontWeight:'bold', fontSize:'0.8rem', color:'#94a3b8'}}>MOVIMIENTOS</div> <div className="text-sm">Se encontraron {userHistory.garantias.length} garantías y {userHistory.devoluciones.length} devoluciones.</div></div>}
-            </div> )}
-        </div>
-      </div>
+        </>
+      )}
 
+      {/* === PESTAÑA PROVEEDORES === */}
+      {activeTab === 'providers' && (
+          <ProvidersTab />
+      )}
+
+      {/* MODAL DE CREAR USUARIO (Se mantiene igual) */}
       {showCreateModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
             <div className="card" style={{ width: '450px', position: 'relative' }}>
