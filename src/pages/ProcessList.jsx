@@ -8,6 +8,7 @@ import {
   Eye, 
   XCircle,
   Building2
+  // Eliminamos Calendar de aquí
 } from "lucide-react";
 
 const ProcessList = () => {
@@ -26,6 +27,10 @@ const ProcessList = () => {
   const [branches, setBranches] = useState([]);
   const [typeFilter, setTypeFilter] = useState("todos");
 
+  // --- FILTROS DE FECHA ---
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   // --- ESTADO DE ROL ---
   const [isAdmin, setIsAdmin] = useState(false);
   const [userBranchId, setUserBranchId] = useState(null);
@@ -39,7 +44,7 @@ const ProcessList = () => {
     if (userBranchId || isAdmin) {
         fetchData();
     }
-  }, [statusFilter, isAdmin, userBranchId]);
+  }, [statusFilter, isAdmin, userBranchId, startDate, endDate]);
 
   const checkUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -65,13 +70,8 @@ const ProcessList = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let queryG = supabase
-        .from('garantias')
-        .select('id, folio, producto_nombre, created_at, estatus, sucursales(id, nombre), proveedores(nombre)');
-      
-      let queryD = supabase
-        .from('devoluciones')
-        .select('id, folio, producto_nombre, created_at, estatus, sucursales(id, nombre), proveedores(nombre)');
+      let queryG = supabase.from('garantias').select('id, folio, producto_nombre, created_at, estatus, sucursales(id, nombre), proveedores(nombre)');
+      let queryD = supabase.from('devoluciones').select('id, folio, producto_nombre, created_at, estatus, sucursales(id, nombre), proveedores(nombre)');
 
       if (statusFilter !== 'todos') {
         queryG = queryG.eq('estatus', statusFilter);
@@ -83,13 +83,22 @@ const ProcessList = () => {
         queryD = queryD.eq('sucursal_id', userBranchId);
       }
 
+      // Filtro de Fechas
+      if (startDate) {
+          queryG = queryG.gte('created_at', startDate);
+          queryD = queryD.gte('created_at', startDate);
+      }
+      if (endDate) {
+          const endDateTime = `${endDate}T23:59:59`;
+          queryG = queryG.lte('created_at', endDateTime);
+          queryD = queryD.lte('created_at', endDateTime);
+      }
+
       const [resG, resD] = await Promise.all([queryG, queryD]);
 
       if (resG.error) throw resG.error;
       if (resD.error) throw resD.error;
 
-      // --- CORRECCIÓN FINAL: USAMOS PLURAL ---
-      // Usamos 'garantias' y 'devoluciones' para que coincida con la BD y el Router no falle.
       const combined = [
         ...(resG.data || []).map(i => ({ ...i, type: 'garantias', folio: i.folio })),
         ...(resD.data || []).map(i => ({ ...i, type: 'devoluciones', folio: i.folio }))
@@ -119,7 +128,6 @@ const ProcessList = () => {
         ? (branchFilter === "todos" || item.sucursales?.id.toString() === branchFilter)
         : true; 
 
-    // AJUSTE DEL FILTRO: Comparamos contra el PLURAL
     const matchesType = typeFilter === "todos" || 
                         (typeFilter === "garantias" && item.type === "garantias") ||
                         (typeFilter === "devoluciones" && item.type === "devoluciones");
@@ -150,6 +158,9 @@ const ProcessList = () => {
     };
   };
 
+  // ESTILO COMÚN PARA TODOS LOS INPUTS (ALTURA FIJA)
+  const commonInputStyle = { height: '42px', fontSize: '0.9rem' };
+
   return (
     <div className="container" style={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       
@@ -169,42 +180,82 @@ const ProcessList = () => {
       <div className="card" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', flexShrink: 0 }}>
         
         {/* FILTROS SUPERIORES */}
-        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1.5rem' }}>
+        <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isAdmin ? '2fr 1fr 1fr 2fr' : '2fr 1fr 2fr', 
+            gap: '1rem',
+            alignItems: 'end'
+        }}>
+            {/* 1. BUSCADOR */}
             <div>
+                <label className="text-sm font-bold text-gray-500 mb-1 block">Búsqueda</label>
                 <input 
                   type="text" 
-                  placeholder="Buscar por folio, producto..." 
+                  placeholder="Folio, producto..." 
                   className="form-input"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  style={commonInputStyle} // Altura forzada
                 />
             </div>
+
+            {/* 2. TIPO */}
             <div>
+                <label className="text-sm font-bold text-gray-500 mb-1 block">Tipo</label>
                 <select 
                     className="form-select" 
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
+                    style={commonInputStyle} // Altura forzada
                 >
-                    <option value="todos">Todos los Tipos</option>
-                    <option value="garantias">Solo Garantías</option>
-                    <option value="devoluciones">Solo Devoluciones</option>
+                    <option value="todos">Todos</option>
+                    <option value="garantias">Garantías</option>
+                    <option value="devoluciones">Devoluciones</option>
                 </select>
             </div>
             
+            {/* 3. SUCURSAL (Solo Admin) */}
             {isAdmin && (
                 <div>
+                    <label className="text-sm font-bold text-gray-500 mb-1 block">Sucursal</label>
                     <select 
                         className="form-select"
                         value={branchFilter}
                         onChange={(e) => setBranchFilter(e.target.value)}
+                        style={commonInputStyle} // Altura forzada
                     >
-                        <option value="todos">Todas las Sucursales</option>
+                        <option value="todos">Todas</option>
                         {branches.map(b => (
                             <option key={b.id} value={b.id}>{b.nombre}</option>
                         ))}
                     </select>
                 </div>
             )}
+
+            {/* 4. RANGO DE FECHAS */}
+            <div>
+                {/* Se eliminó el ícono <Calendar /> de aquí */}
+                <label className="text-sm font-bold text-gray-500 mb-1 block">
+                    Fechas
+                </label>
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    <input 
+                        type="date" 
+                        className="form-input" 
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        style={commonInputStyle} // Altura forzada
+                    />
+                    <span style={{ color: '#94a3b8' }}>-</span>
+                    <input 
+                        type="date" 
+                        className="form-input" 
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        style={commonInputStyle} // Altura forzada
+                    />
+                </div>
+            </div>
         </div>
 
         {/* TABS ESTATUS */}
@@ -213,10 +264,10 @@ const ProcessList = () => {
                 { id: 'todos', label: 'Todos' },
                 { id: 'creado', label: 'Creado' }, 
                 { id: 'activo', label: 'Activo' }, 
-                { id: 'asignar_folio_sicar', label: 'Asignar Folio SICAR' },
+                { id: 'asignar_folio_sicar', label: 'Folio SICAR' },
                 { id: 'por_aprobar', label: 'Por Aprobar' },
                 { id: 'con_proveedor', label: 'Con Proveedor' },
-                { id: 'listo_para_entrega', label: 'Listos para Entrega' },
+                { id: 'listo_para_entrega', label: 'Entrega' },
                 { id: 'cerrado', label: 'Cerrados' }
             ].map(tab => (
                 <button
@@ -248,7 +299,14 @@ const ProcessList = () => {
               <XCircle size={48} style={{ margin: '0 auto 10px auto', opacity: 0.3 }} />
               <p>No se encontraron registros.</p>
               <button 
-                  onClick={() => { setSearchTerm(""); setTypeFilter("todos"); setBranchFilter("todos"); handleStatusChange('todos'); }} 
+                  onClick={() => { 
+                      setSearchTerm(""); 
+                      setTypeFilter("todos"); 
+                      setBranchFilter("todos"); 
+                      setStartDate(""); 
+                      setEndDate(""); 
+                      handleStatusChange('todos'); 
+                  }} 
                   className="btn btn-secondary" 
                   style={{ marginTop: '1rem' }}
               >
@@ -273,7 +331,6 @@ const ProcessList = () => {
                 {filteredData.map((item) => (
                   <tr key={`${item.type}-${item.id}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}>
                     <td style={tdStyle}>
-                       {/* AJUSTE VISUAL: Comprobamos contra 'garantias' (PLURAL) */}
                        <div style={{ 
                           width: '32px', height: '32px', borderRadius: '8px', 
                           background: item.type === 'garantias' ? '#fff7ed' : '#f0f9ff',
@@ -310,7 +367,6 @@ const ProcessList = () => {
                     </td>
                     <td style={tdStyle}>
                       <button 
-                        // AQUÍ ES DONDE FALLABA: Ahora enviamos 'garantias' o 'devoluciones'
                         onClick={() => navigate(`/process/${item.id}?type=${item.type}`)}
                         className="btn btn-secondary" 
                         style={{ padding: '6px 10px' }}
