@@ -2,32 +2,51 @@ import { Check, Clock, AlertCircle } from "lucide-react";
 
 const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
   
-  // Definimos los pasos lógicos del proceso
-  const steps = [
-    { label: "Creada", status: "creado" },
-    { label: "Folio SICAR", status: "asignar_folio_sicar" }, // NUEVO PASO
-    { label: "Entrega Prov.", status: "pendiente_validacion" }, // Este paso usa VendorHandover
-    { label: "Resolución", status: "con_proveedor" }, // Engloba con_proveedor y por_aprobar
-    { label: "Entrega Cliente", status: "listo_para_entrega" },
-    { label: "Cerrado", status: "cerrado" }
-  ];
+  // 1. Define steps dynamically based on type
+  // If it's a 'devolucion', we skip 'Entrega Cliente'
+  const getSteps = () => {
+    const commonStart = [
+      { label: "Creada", status: "creado" },
+      { label: "Folio SICAR", status: "asignar_folio_sicar" },
+      { label: "Entrega Prov.", status: "pendiente_validacion" },
+      { label: "Resolución", status: "con_proveedor" }
+    ];
 
-  // Función para determinar en qué índice numérico va el proceso actual
-  const getCurrentStepIndex = (status) => {
-    switch (status) {
-      case 'creado': return 0;
-      case 'asignar_folio_sicar': return 1;
-
-      case 'activo': 
-      case 'pendiente_validacion': return 2;
-
-      case 'con_proveedor': 
-      case 'por_aprobar': 
-      case 'pendiente_cierre': return 3; // Todos estos son fase de resolución/espera
-      case 'listo_para_entrega': return 4;
-      case 'cerrado': return 5;
-      default: return 0;
+    if (type === 'garantia' || type === 'garantias') {
+        return [
+            ...commonStart,
+            { label: "Entrega Cliente", status: "listo_para_entrega" },
+            { label: "Cerrado", status: "cerrado" }
+        ];
+    } else {
+        // Devolución: Skip 'Entrega Cliente'
+        return [
+            ...commonStart,
+            { label: "Cerrado", status: "cerrado" }
+        ];
     }
+  };
+
+  const steps = getSteps();
+
+  // 2. Logic to map backend status to step index
+  const getCurrentStepIndex = (status) => {
+    // Common indexes
+    if (status === 'creado') return 0;
+    if (status === 'asignar_folio_sicar') return 1;
+    if (status === 'activo' || status === 'pendiente_validacion') return 2;
+    if (status === 'con_proveedor' || status === 'por_aprobar' || status === 'pendiente_cierre') return 3;
+
+    // Divergent indexes based on type
+    if (type === 'garantia' || type === 'garantias') {
+        if (status === 'listo_para_entrega') return 4;
+        if (status === 'cerrado') return 5;
+    } else {
+        // For returns, closed is immediately after resolution (index 3)
+        if (status === 'cerrado') return 4; 
+    }
+    
+    return 0;
   };
 
   const currentStepIndex = getCurrentStepIndex(currentStatus);
@@ -36,10 +55,10 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', margin: '20px 0' }}>
       
-      {/* Línea de fondo (gris) */}
+      {/* Background Line (Gray) */}
       <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: '#e2e8f0', zIndex: 0, transform: 'translateY(-50%)' }} />
 
-      {/* Línea de progreso (color) */}
+      {/* Progress Line (Color) */}
       <div style={{ 
           position: 'absolute', 
           top: '50%', 
@@ -55,26 +74,21 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
       {steps.map((step, index) => {
         const isCompleted = index <= currentStepIndex;
         const isCurrent = index === currentStepIndex;
-        const isViewed = index === viewStepIndex;
-
-        let circleColor = '#e2e8f0'; // Gris por defecto
-        let iconColor = '#94a3b8';
+        
+        let circleColor = '#e2e8f0'; // Gray default
         
         if (isCompleted) {
             circleColor = type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9';
-            iconColor = 'white';
         }
 
-        // Estilo especial para el paso que estamos "mirando" (si el usuario hizo clic en historial)
+        // Highlight selected view
         const isSelectedView = viewStep && index === viewStepIndex;
 
         return (
           <div 
             key={index} 
             onClick={() => {
-                // Solo permitimos navegar a pasos anteriores o al actual
                 if (index <= currentStepIndex && onStepClick) {
-                    // Mapeamos el label del timeline de regreso a un status "genérico" para que WarrantyDetail sepa qué mostrar
                     onStepClick(step.status); 
                 }
             }}
@@ -95,7 +109,7 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
-                border: isSelectedView ? '3px solid #1e293b' : '3px solid white', // Resaltar selección
+                border: isSelectedView ? '3px solid #1e293b' : '3px solid white', 
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 transition: 'all 0.3s'
             }}>

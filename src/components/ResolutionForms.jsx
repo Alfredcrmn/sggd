@@ -40,13 +40,6 @@ const ResolutionForms = ({ isGarantia, resolutionType, onChange }) => {
         return (
             <div className="sub-form" style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '10px' }}>
                 <InputText name="persona_recibe" label="Recibe en sucursal" placeholder="Empleado" onChange={onChange} />
-                
-                {isGarantia && (
-                    <>
-                        <InputText name="persona_entrega" label="Entrega al cliente" placeholder="Empleado responsable" onChange={onChange} />
-                        <InputDate name="fecha_entrega" label="Fecha estimada entrega" onChange={onChange} />
-                    </>
-                )}
             </div>
         );
     }
