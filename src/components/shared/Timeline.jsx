@@ -1,9 +1,8 @@
-import { Check, Clock, AlertCircle } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 
 const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
   
-  // 1. Define steps dynamically based on type
-  // If it's a 'devolucion', we skip 'Entrega Cliente'
+  // 1. Definir pasos dinámicos
   const getSteps = () => {
     const commonStart = [
       { label: "Creada", status: "creado" },
@@ -19,7 +18,7 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
             { label: "Cerrado", status: "cerrado" }
         ];
     } else {
-        // Devolución: Skip 'Entrega Cliente'
+        // Devolución: Se salta 'Entrega Cliente'
         return [
             ...commonStart,
             { label: "Cerrado", status: "cerrado" }
@@ -29,20 +28,34 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
 
   const steps = getSteps();
 
-  // 2. Logic to map backend status to step index
+  // 2. Lógica corregida de índices
   const getCurrentStepIndex = (status) => {
-    // Common indexes
+    // Pasos iniciales comunes
     if (status === 'creado') return 0;
     if (status === 'asignar_folio_sicar') return 1;
     if (status === 'activo' || status === 'pendiente_validacion') return 2;
-    if (status === 'con_proveedor' || status === 'por_aprobar' || status === 'pendiente_cierre') return 3;
+    
+    // Fase de Resolución (Esperando proveedor o aprobando nota de crédito)
+    if (status === 'con_proveedor' || status === 'por_aprobar') return 3;
 
-    // Divergent indexes based on type
+    // --- CORRECCIÓN AQUÍ ---
+    // 'pendiente_cierre' es la validación final.
+    // Su posición visual depende de si hay paso de entrega al cliente o no.
+    if (status === 'pendiente_cierre') {
+        if (type === 'garantia' || type === 'garantias') {
+            // En Garantía: Ocurre DESPUÉS de entregar al cliente. Mantenemos el paso 4 activo.
+            return 4; 
+        } else {
+            // En Devolución: Ocurre DESPUÉS de resolución. Mantenemos el paso 3 activo.
+            return 3;
+        }
+    }
+
+    // Pasos finales específicos
     if (type === 'garantia' || type === 'garantias') {
         if (status === 'listo_para_entrega') return 4;
         if (status === 'cerrado') return 5;
     } else {
-        // For returns, closed is immediately after resolution (index 3)
         if (status === 'cerrado') return 4; 
     }
     
@@ -55,16 +68,16 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', margin: '20px 0' }}>
       
-      {/* Background Line (Gray) */}
+      {/* Línea de fondo */}
       <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: '#e2e8f0', zIndex: 0, transform: 'translateY(-50%)' }} />
 
-      {/* Progress Line (Color) */}
+      {/* Línea de progreso */}
       <div style={{ 
           position: 'absolute', 
           top: '50%', 
           left: 0, 
           height: '4px', 
-          background: type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9', 
+          background: type === 'garantia' || type === 'garantias' ? 'var(--color-brand-primary)' : '#0ea5e9', 
           zIndex: 0, 
           transform: 'translateY(-50%)',
           width: `${(currentStepIndex / (steps.length - 1)) * 100}%`,
@@ -75,13 +88,12 @@ const Timeline = ({ currentStatus, type, onStepClick, viewStep }) => {
         const isCompleted = index <= currentStepIndex;
         const isCurrent = index === currentStepIndex;
         
-        let circleColor = '#e2e8f0'; // Gray default
+        let circleColor = '#e2e8f0'; 
         
         if (isCompleted) {
-            circleColor = type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9';
+            circleColor = type === 'garantia' || type === 'garantias' ? 'var(--color-brand-primary)' : '#0ea5e9';
         }
 
-        // Highlight selected view
         const isSelectedView = viewStep && index === viewStepIndex;
 
         return (

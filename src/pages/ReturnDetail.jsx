@@ -8,13 +8,13 @@ import EvidenceCard from "../components/shared/EvidenceCard";
 import Timeline from "../components/shared/Timeline";
 
 // Actions
-import AssignSicarFolio from "../components/actions/AssignSicarFolio"; // <--- IMPORTACIÓN NUEVA
+import AssignSicarFolio from "../components/actions/AssignSicarFolio";
 import VendorHandover from "../components/actions/VendorHandover";
 import ProcessResolution from "../components/actions/ProcessResolution";
 import AdminReview from "../components/actions/AdminReview";
 
 // Icons
-import { Archive, Hash, CreditCard, FileText, Store, MapPin, Truck, User, Phone, Eye, FileCheck, ArrowRight } from "lucide-react";
+import { Archive, Hash, CreditCard, FileText, Store, MapPin, Truck, User, Phone, Eye, FileCheck, ArrowRight, UserCheck } from "lucide-react";
 
 const ReturnDetail = () => {
   const { id } = useParams();
@@ -23,21 +23,31 @@ const ReturnDetail = () => {
   const [loading, setLoading] = useState(true);
   
   const [viewStep, setViewStep] = useState(null);
-  const [sendingToSicar, setSendingToSicar] = useState(false); // <--- ESTADO PARA LOADING
+  const [sendingToSicar, setSendingToSicar] = useState(false);
 
   const fetchDetail = async () => {
     try {
+      // CORRECCIÓN: Eliminamos la columna que no existe.
+      // Usamos 'recibido_de_proveedor_por_id' (alias perfiles_recibo) para saber quién recibió la resolución.
       const { data: record, error } = await supabase
         .from('devoluciones')
-        .select(`*, sucursales(nombre), proveedores(nombre), perfiles:solicitado_por_id(nombre_completo)`)
+        .select(`
+            *, 
+            sucursales(nombre), 
+            proveedores(nombre), 
+            perfiles_solicitud:solicitado_por_id(nombre_completo),
+            perfiles_entrega:entregado_por_id(nombre_completo),
+            perfiles_recibo:recibido_de_proveedor_por_id(nombre_completo)
+        `)
         .eq('id', id)
         .single();
+
       if (error) throw error;
       setData(record);
       setViewStep(record.estatus);
     } catch (error) {
       console.error(error);
-      navigate("/processes");
+      // Opcional: navigate("/processes"); si quieres redirigir al fallar
     } finally {
       setLoading(false);
     }
@@ -45,15 +55,10 @@ const ReturnDetail = () => {
 
   useEffect(() => { fetchDetail(); }, [id]);
 
-  // FUNCIÓN PARA AVANZAR A 'ASIGNAR_FOLIO_SICAR'
   const sendToSicarAssignment = async () => {
     setSendingToSicar(true);
     try {
-        const { error } = await supabase
-            .from('devoluciones') // Tabla devoluciones
-            .update({ estatus: 'asignar_folio_sicar' })
-            .eq('id', id);
-        
+        const { error } = await supabase.from('devoluciones').update({ estatus: 'asignar_folio_sicar' }).eq('id', id);
         if (error) throw error;
         fetchDetail();
     } catch (error) {
@@ -67,9 +72,7 @@ const ReturnDetail = () => {
   const formatDate = (dateString) => {
       if (!dateString) return "-";
       const date = new Date(dateString);
-      return new Date(date.valueOf() + date.getTimezoneOffset() * 60000).toLocaleDateString('es-MX', {
-          year: 'numeric', month: '2-digit', day: '2-digit'
-      });
+      return new Date(date.valueOf() + date.getTimezoneOffset() * 60000).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
   const formatCurrency = (amount) => {
@@ -91,36 +94,20 @@ const ReturnDetail = () => {
   const renderRightColumn = () => {
     // 1. MODO EDICIÓN
     if (viewStep === data.estatus) {
-        
-        // PASO 1: Creado -> Botón para solicitar folio
         if (data.estatus === 'creado') {
              return (
                 <div style={{ textAlign: 'center', padding: '1rem' }}>
                     <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#1e293b' }}>Proceso Creado</h3>
-                    <p className="text-sm" style={{ marginBottom: '1.5rem', color: '#64748b' }}>
-                        El registro ha sido creado exitosamente. Para continuar, un administrador debe asignar el folio interno de SICAR.
-                    </p>
-                    <button 
-                        onClick={sendToSicarAssignment}
-                        disabled={sendingToSicar}
-                        className="btn btn-primary"
-                        style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '0.75rem', backgroundColor: '#0f172a', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
-                    >
+                    <p className="text-sm" style={{ marginBottom: '1.5rem', color: '#64748b' }}>El registro ha sido creado exitosamente. Para continuar, un administrador debe asignar el folio interno de SICAR.</p>
+                    <button onClick={sendToSicarAssignment} disabled={sendingToSicar} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px', padding: '0.75rem', backgroundColor: '#0f172a', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}>
                         {sendingToSicar ? "Procesando..." : <>Solicitar Folio SICAR <ArrowRight size={18}/></>}
                     </button>
                 </div>
             );
         }
 
-        // PASO 2: Asignar Folio SICAR
-        if (data.estatus === 'asignar_folio_sicar') {
-            return <AssignSicarFolio id={id} table="devoluciones" onUpdate={fetchDetail} />;
-        }
-
-        // PASO 3: Entrega a Proveedor (VendorHandover)
+        if (data.estatus === 'asignar_folio_sicar') return <AssignSicarFolio id={id} table="devoluciones" onUpdate={fetchDetail} />;
         if (data.estatus === 'activo' || data.estatus === 'pendiente_validacion') return <VendorHandover table="devoluciones" id={id} onUpdate={fetchDetail} />;
-        
-        // PASO 4: Resolución y Cierre
         if (data.estatus === 'con_proveedor') return <ProcessResolution table="devoluciones" id={id} isGarantia={false} onUpdate={fetchDetail} />;
         if (data.estatus === 'pendiente_cierre') return <AdminReview table="devoluciones" id={id} currentStatus="pendiente_cierre" onUpdate={fetchDetail} />;
         
@@ -140,7 +127,7 @@ const ReturnDetail = () => {
                 <Eye size={16} /> Historial: {viewStep.replace(/_/g, ' ')}
             </div>
 
-            {/* A. FOLIO SICAR (Visible en historial) */}
+            {/* A. FOLIO SICAR */}
             {(viewStep !== 'creado' && viewStep !== 'asignar_folio_sicar') && data.folio_sicar && (
                 <div style={{ marginBottom: '2rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#6366f1' }}>
@@ -163,6 +150,16 @@ const ReturnDetail = () => {
                         <div><div style={detailLabelStyle}>Vendedor</div><div style={detailValueStyle}>{data.vendedor_nombre}</div></div>
                         <div><div style={detailLabelStyle}>Teléfono</div><div style={detailValueStyle}>{data.vendedor_telefono}</div></div>
                         <div style={{ gridColumn: 'span 2' }}><div style={detailLabelStyle}>Fecha Recolección</div><div style={detailValueStyle}>{formatDate(data.fecha_entrega_proveedor)}</div></div>
+                        
+                        {data.perfiles_entrega && (
+                            <div style={{ gridColumn: 'span 2', marginTop: '5px', paddingTop: '10px', borderTop: '1px solid #fed7aa' }}>
+                                <div style={detailLabelStyle}>Entregado Por (Interno)</div>
+                                <div style={{ ...detailValueStyle, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <UserCheck size={14} color="#b45309" />
+                                    {data.perfiles_entrega.nombre_completo}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -175,9 +172,22 @@ const ReturnDetail = () => {
                     </div>
                     
                     <div style={{ background: '#f0f9ff', padding: '15px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                        <div style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px solid #bae6fd' }}>
-                            <div style={detailLabelStyle}>Fecha Reingreso Tienda</div>
-                            <div style={detailValueStyle}>{formatDate(data.fecha_reingreso_tienda)}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px solid #bae6fd' }}>
+                            <div>
+                                <div style={detailLabelStyle}>Fecha Reingreso</div>
+                                <div style={detailValueStyle}>{formatDate(data.fecha_reingreso_tienda)}</div>
+                            </div>
+                            
+                            {/* CORRECCIÓN: Usamos perfiles_recibo (que viene de recibido_de_proveedor_por_id) */}
+                            {data.perfiles_recibo && (
+                                <div>
+                                    <div style={detailLabelStyle}>Recibido Por</div>
+                                    <div style={{ ...detailValueStyle, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <UserCheck size={14} color="#0369a1" />
+                                        {data.perfiles_recibo.nombre_completo}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -190,17 +200,9 @@ const ReturnDetail = () => {
                                         </div>
                                     </div>
                                     <div><div style={detailLabelStyle}>Folio NC</div><div style={detailValueStyle}>{resData.folio_nc || '-'}</div></div>
-                                    <div><div style={detailLabelStyle}>Facturas Afect.</div><div style={detailValueStyle}>{resData.facturas_afectadas || '-'}</div></div>
-                                    <div><div style={detailLabelStyle}>Notificado Por</div><div style={detailValueStyle}>{resData.persona_notifica || '-'}</div></div>
-                                    <div><div style={detailLabelStyle}>Fecha Notif.</div><div style={detailValueStyle}>{formatDate(resData.fecha_notificacion)}</div></div>
+                                    {/* Factura Afectada */}
+                                    <div><div style={detailLabelStyle}>Factura Afectada</div><div style={detailValueStyle}>{data.factura_numero || '-'}</div></div>
                                 </>
-                            )}
-
-                            {data.tipo_resolucion === 'cambio_fisico' && (
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <div style={detailLabelStyle}>Recibe en Sucursal</div>
-                                    <div style={detailValueStyle}>{resData.persona_recibe || '-'}</div>
-                                </div>
                             )}
                         </div>
                     </div>
@@ -217,7 +219,6 @@ const ReturnDetail = () => {
   return (
     <div className="container" style={{ padding: '0 2rem 1rem 2rem' }}>
       
-      {/* CSS PARA SCROLLBAR */}
       <style>{`
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -230,7 +231,6 @@ const ReturnDetail = () => {
       
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
         
-        {/* COLUMNA IZQUIERDA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="card">
                 <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b' }}>
@@ -243,7 +243,6 @@ const ReturnDetail = () => {
                 </div>
                 <div><label className="text-sm text-gray font-bold flex gap-2 items-center mb-2"><FileText size={14}/> MOTIVO DEVOLUCIÓN</label><p style={{ lineHeight: '1.6', color: '#334155' }}>{data.razon_devolucion}</p></div>
                 
-                {/* MOSTRAR FOLIO SICAR AQUÍ TAMBIÉN SI YA EXISTE */}
                 {data.folio_sicar && (
                     <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#eef2ff', borderRadius: '6px', color: '#4338ca', fontWeight: 'bold', fontSize: '0.9rem' }}>
@@ -270,7 +269,6 @@ const ReturnDetail = () => {
             {data.evidencia_entrega_url && <EvidenceCard url={data.evidencia_entrega_url} title="Evidencia de Recolección" />}
         </div>
 
-        {/* COLUMNA DERECHA (ACCIONES) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '20px' }}>
             <div 
                 className="card custom-scroll" 

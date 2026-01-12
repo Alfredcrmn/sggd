@@ -88,11 +88,11 @@ const ProcessList = () => {
       if (resG.error) throw resG.error;
       if (resD.error) throw resD.error;
 
-      // CORRECCIÓN AQUÍ: Usamos SINGULAR ('garantia', 'devolucion')
-      // Esto suele arreglar el error de "Tipo no especificado" en la página de detalle
+      // --- CORRECCIÓN FINAL: USAMOS PLURAL ---
+      // Usamos 'garantias' y 'devoluciones' para que coincida con la BD y el Router no falle.
       const combined = [
-        ...(resG.data || []).map(i => ({ ...i, type: 'garantia', folio: i.folio })),
-        ...(resD.data || []).map(i => ({ ...i, type: 'devolucion', folio: i.folio }))
+        ...(resG.data || []).map(i => ({ ...i, type: 'garantias', folio: i.folio })),
+        ...(resD.data || []).map(i => ({ ...i, type: 'devoluciones', folio: i.folio }))
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       setData(combined);
@@ -119,25 +119,24 @@ const ProcessList = () => {
         ? (branchFilter === "todos" || item.sucursales?.id.toString() === branchFilter)
         : true; 
 
-    // Aquí ajustamos para que el filtro coincida con el singular que definimos arriba
+    // AJUSTE DEL FILTRO: Comparamos contra el PLURAL
     const matchesType = typeFilter === "todos" || 
-                        (typeFilter === "garantias" && item.type === "garantia") ||
-                        (typeFilter === "devoluciones" && item.type === "devolucion");
+                        (typeFilter === "garantias" && item.type === "garantias") ||
+                        (typeFilter === "devoluciones" && item.type === "devoluciones");
 
     return matchesText && matchesBranch && matchesType;
   });
 
-  // --- LÓGICA DE COLORES UNIFICADA ---
   const getBadgeStyle = (status) => {
     const colors = {
-        creado: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }, // Naranja
-        activo: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }, // Naranja
-        asignar_folio_sicar: { bg: '#e0e7ff', color: '#1e3a8a', border: '#c7d2fe' }, // Azul Marino
-        con_proveedor: { bg: '#f3e8ff', color: '#7e22ce', border: '#d8b4fe' }, // Morado
-        por_aprobar: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // Verde
-        pendiente_cierre: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // Verde
-        listo_para_entrega: { bg: '#fef9c3', color: '#a16207', border: '#fde047' }, // Amarillo
-        cerrado: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' }, // Rojo
+        creado: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+        activo: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+        asignar_folio_sicar: { bg: '#e0e7ff', color: '#1e3a8a', border: '#c7d2fe' },
+        con_proveedor: { bg: '#f3e8ff', color: '#7e22ce', border: '#d8b4fe' },
+        por_aprobar: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+        pendiente_cierre: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+        listo_para_entrega: { bg: '#fef9c3', color: '#a16207', border: '#fde047' },
+        cerrado: { bg: '#fee2e2', color: '#b91c1c', border: '#fecaca' },
     };
 
     const style = colors[status] || { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' };
@@ -208,12 +207,12 @@ const ProcessList = () => {
             )}
         </div>
 
-        {/* TABS ESTATUS (ACTUALIZADO CON CREADO Y ACTIVO) */}
+        {/* TABS ESTATUS */}
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', borderBottom: '1px solid #f1f5f9' }}>
             {[
                 { id: 'todos', label: 'Todos' },
-                { id: 'creado', label: 'Creado' }, // NUEVO
-                { id: 'activo', label: 'Activo' }, // NUEVO
+                { id: 'creado', label: 'Creado' }, 
+                { id: 'activo', label: 'Activo' }, 
                 { id: 'asignar_folio_sicar', label: 'Asignar Folio SICAR' },
                 { id: 'por_aprobar', label: 'Por Aprobar' },
                 { id: 'con_proveedor', label: 'Con Proveedor' },
@@ -274,13 +273,14 @@ const ProcessList = () => {
                 {filteredData.map((item) => (
                   <tr key={`${item.type}-${item.id}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}>
                     <td style={tdStyle}>
+                       {/* AJUSTE VISUAL: Comprobamos contra 'garantias' (PLURAL) */}
                        <div style={{ 
                           width: '32px', height: '32px', borderRadius: '8px', 
-                          background: item.type === 'garantia' ? '#fff7ed' : '#f0f9ff',
-                          color: item.type === 'garantia' ? 'var(--color-brand-primary)' : '#0ea5e9',
+                          background: item.type === 'garantias' ? '#fff7ed' : '#f0f9ff',
+                          color: item.type === 'garantias' ? 'var(--color-brand-primary)' : '#0ea5e9',
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
                        }}>
-                          {item.type === 'garantia' ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
+                          {item.type === 'garantias' ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
                        </div>
                     </td>
                     <td style={{ ...tdStyle, fontWeight: '600', color: 'var(--color-dark-bg)' }}>
@@ -310,6 +310,7 @@ const ProcessList = () => {
                     </td>
                     <td style={tdStyle}>
                       <button 
+                        // AQUÍ ES DONDE FALLABA: Ahora enviamos 'garantias' o 'devoluciones'
                         onClick={() => navigate(`/process/${item.id}?type=${item.type}`)}
                         className="btn btn-secondary" 
                         style={{ padding: '6px 10px' }}
