@@ -32,6 +32,8 @@ function App() {
         <Routes>
           {/* Ruta Pública: Login */}
           <Route path="/login" element={<Login />} />
+          <Route path="/mobile-upload/:id" element={<MobileUpload />} />
+
 
           {/* Rutas Privadas: Todas viven dentro del Layout */}
           <Route element={<RutaPrivada />}>
@@ -41,7 +43,6 @@ function App() {
             <Route path="/processes" element={<ProcessList />} />
             <Route path="/process/:id" element={<ProcessDetail />} />
             <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/mobile-upload/:id" element={<MobileUpload />} />
             <Route path="/admin" element={<AdminPanel />} />
           </Route>
 
