@@ -169,14 +169,17 @@ const AdminPanel = () => {
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const tabBtnStyle = (tabName) => ({
+const tabBtnStyle = (tabName) => ({
     padding: '10px 20px',
     cursor: 'pointer',
-    borderBottom: activeTab === tabName ? '2px solid var(--color-brand-primary)' : '2px solid transparent',
+    // Eliminamos el duplicado que estaba aquí
     color: activeTab === tabName ? 'var(--color-brand-primary)' : '#64748b',
     fontWeight: activeTab === tabName ? 'bold' : 'normal',
     display: 'flex', alignItems: 'center', gap: '8px',
-    background: 'none', border: 'none', borderBottom: activeTab === tabName ? '2px solid var(--color-brand-primary)' : '2px solid transparent'
+    background: 'none', 
+    border: 'none', // Reseteamos bordes generales
+    // Definimos el borde inferior UNA sola vez aquí:
+    borderBottom: activeTab === tabName ? '2px solid var(--color-brand-primary)' : '2px solid transparent'
   });
 
   if (loading) return <div className="p-8">Verificando acceso...</div>;
