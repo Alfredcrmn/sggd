@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { supabase } from "../../supabase/client";
 import { useAuth } from "../../context/AuthContext";
-import { Truck, Upload, Save } from "lucide-react";
+import { Truck, Save, Upload, AlertCircle } from "lucide-react";
+import QuickQRUpload from "../QuickQRUpload"; 
 
 const VendorHandover = ({ table, id, onUpdate }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState(null);
   
+  // Opción A: URL recibida por QR
+  const [evidenceUrl, setEvidenceUrl] = useState(null);
+  // Opción B: Archivo manual
+  const [manualFile, setManualFile] = useState(null);
+
+  const [sessionId] = useState(() => crypto.randomUUID());
+
   const [form, setForm] = useState({
     vendedor_nombre: "",
     vendedor_telefono: "",
@@ -16,25 +23,30 @@ const VendorHandover = ({ table, id, onUpdate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return alert("⚠️ Se requiere foto de la firma/evidencia.");
+    
+    if (!evidenceUrl && !manualFile) {
+        return alert("⚠️ Se requiere evidencia. Escanea el QR o sube una foto manualmente.");
+    }
     
     setLoading(true);
     try {
-      // 1. Subir firma
-      const fileName = `firmas/${table}_${id}_${Date.now()}`;
-      const { error: upError } = await supabase.storage.from('evidencias').upload(fileName, file);
-      if (upError) throw upError;
-      
-      const { data: publicUrl } = supabase.storage.from('evidencias').getPublicUrl(fileName);
+      let finalUrl = evidenceUrl;
 
-      // 2. Guardar en BD (CORREGIDO: Usamos 'evidencia_entrega_url')
+      // Subida manual si no hay QR
+      if (!finalUrl && manualFile) {
+          const fileName = `firmas/${table}_${id}_${Date.now()}`;
+          const { error: upError } = await supabase.storage.from('evidencias').upload(fileName, manualFile);
+          if (upError) throw upError;
+          
+          const { data } = supabase.storage.from('evidencias').getPublicUrl(fileName);
+          finalUrl = data.publicUrl;
+      }
+
       const updateData = {
         vendedor_nombre: form.vendedor_nombre,
         vendedor_telefono: form.vendedor_telefono,
         fecha_entrega_proveedor: form.fecha,
-        
-        evidencia_entrega_url: publicUrl.publicUrl, // <--- CORRECCIÓN AQUÍ
-        
+        evidencia_entrega_url: finalUrl,
         entregado_por_id: user.id,
         estatus: 'con_proveedor'
       };
@@ -44,58 +56,94 @@ const VendorHandover = ({ table, id, onUpdate }) => {
       if (error) throw error;
       alert("✅ Entregado a proveedor correctamente.");
       onUpdate();
+
     } catch (error) {
+      console.error(error);
       alert("Error: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // --- ESTILOS VISUALES LIMPIOS ---
+  // Eliminamos className="card" para evitar el doble recuadro
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', color: '#b45309', fontWeight: 'bold' }}>
-        <Truck size={20} /> Paso 2: Entrega a Proveedor
-      </div>
+    <div style={{ padding: '5px' }}> 
       
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div>
-            <label className="form-label">Nombre del Vendedor</label>
-            <input required type="text" className="form-input" 
-                placeholder="Nombre completo"
-                value={form.vendedor_nombre}
-                onChange={e => setForm({...form, vendedor_nombre: e.target.value})} 
-            />
-        </div>
+      <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '600' }}>
+        <Truck size={22} color="#b45309" /> 
+        Paso 2: Entrega a Proveedor
+      </h3>
+      
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        {/* DATOS DEL VENDEDOR */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ gridColumn: 'span 2' }}>
+                <label className="form-label" style={{display:'block', marginBottom:'5px', fontSize:'0.9rem', color:'#64748b'}}>Nombre del Vendedor / Chofer</label>
+                <input required type="text" className="form-input" 
+                    placeholder="Nombre completo"
+                    value={form.vendedor_nombre}
+                    onChange={e => setForm({...form, vendedor_nombre: e.target.value})} 
+                    style={{width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1'}}
+                />
+            </div>
             <div>
-                <label className="form-label">Teléfono</label>
+                <label className="form-label" style={{display:'block', marginBottom:'5px', fontSize:'0.9rem', color:'#64748b'}}>Teléfono</label>
                 <input required type="tel" className="form-input" 
                     placeholder="Contacto"
                     value={form.vendedor_telefono}
                     onChange={e => setForm({...form, vendedor_telefono: e.target.value})} 
+                    style={{width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1'}}
                 />
             </div>
             <div>
-                <label className="form-label">Fecha Recolección</label>
+                <label className="form-label" style={{display:'block', marginBottom:'5px', fontSize:'0.9rem', color:'#64748b'}}>Fecha Recolección</label>
                 <input required type="date" className="form-input" 
                     value={form.fecha}
                     onChange={e => setForm({...form, fecha: e.target.value})} 
+                    style={{width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1'}}
                 />
             </div>
         </div>
         
-        <div style={{ border: '2px dashed #cbd5e1', padding: '15px', borderRadius: '8px', textAlign: 'center', background: '#f8fafc' }}>
-            <input type="file" id="firma-upload" accept="image/*" style={{ display: 'none' }} onChange={e => setFile(e.target.files[0])} />
-            <label htmlFor="firma-upload" style={{ cursor: 'pointer', display: 'block' }}>
-                <div style={{ color: '#64748b', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                    <Upload size={24} color="#94a3b8" />
-                    {file ? <span style={{color: '#16a34a', fontWeight: 'bold'}}>✅ {file.name}</span> : "Subir Foto de Firma"}
+        {/* SECCIÓN DE EVIDENCIA (QR + Manual) */}
+        <div>
+            <label className="form-label" style={{ marginBottom: '8px', display: 'block', fontSize:'0.9rem', color:'#64748b' }}>Evidencia de Entrega (Foto de Firma)</label>
+            
+            {/* 1. COMPONENTE QR */}
+            <QuickQRUpload 
+                sessionId={sessionId} 
+                onUploadComplete={(url) => {
+                    setEvidenceUrl(url);
+                    setManualFile(null); 
+                }} 
+            />
+
+            {/* 2. OPCIÓN MANUAL */}
+            {!evidenceUrl && (
+                <div style={{ marginTop: '10px', textAlign: 'right' }}>
+                    <input 
+                        type="file" 
+                        id="manual-upload" 
+                        accept="image/*" 
+                        style={{ display: 'none' }} 
+                        onChange={e => setManualFile(e.target.files[0])} 
+                    />
+                    <label htmlFor="manual-upload" style={{ fontSize: '0.85rem', color: '#64748b', cursor: 'pointer', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Upload size={14}/> 
+                        {manualFile ? `Archivo seleccionado: ${manualFile.name}` : "O subir archivo desde esta PC"}
+                    </label>
                 </div>
-            </label>
+            )}
         </div>
 
-        <button disabled={loading} className="btn btn-primary" style={{ justifyContent: 'center' }}>
+        <div style={{ background: '#fffbeb', padding: '10px', borderRadius: '6px', fontSize: '0.8rem', color: '#b45309', display: 'flex', gap: '8px', border: '1px solid #fef3c7' }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span>Al confirmar, el estatus cambiará a "Con Proveedor" y se notificará el seguimiento.</span>
+        </div>
+
+        <button disabled={loading} className="btn btn-primary" style={{ justifyContent: 'center', backgroundColor: '#b45309', border: 'none', padding: '12px', fontSize: '1rem' }}>
             {loading ? "Registrando..." : <><Save size={18} /> Confirmar Entrega</>}
         </button>
       </form>
