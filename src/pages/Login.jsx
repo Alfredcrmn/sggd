@@ -182,11 +182,6 @@ const Login = () => {
                 {loading ? statusMsg : "Iniciar Sesión"}
             </button>
         </form>
-        
-        {/* Quitamos el aviso visual de "Monitoreado por ubicación" para ser más discretos */}
-        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>v1.0.0</span>
-        </div>
       </div>
     </div>
   );

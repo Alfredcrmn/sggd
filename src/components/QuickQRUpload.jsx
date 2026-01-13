@@ -45,7 +45,7 @@ const QuickQRUpload = ({ sessionId, onUploadComplete }) => {
             style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', border: '2px solid #22c55e' }} 
           />
           <div style={{ marginTop: '10px', color: '#166534', fontWeight: 'bold' }}>
-            ✅ ¡Foto recibida!
+            ¡Foto recibida!
           </div>
           <button 
             type="button"
