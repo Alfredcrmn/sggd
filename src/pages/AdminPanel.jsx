@@ -72,16 +72,33 @@ const AdminPanel = () => {
     } catch (error) { console.error("Error:", error); } finally { setLoading(false); }
   };
 
+  // Corrección del historial: Buscamos en todas las columnas posibles
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
     setIsEditing(false);
     setEditForm({});
     setLoadingHistory(true);
     try {
-      const { data: g } = await supabase.from('garantias').select('id, folio, producto_nombre, created_at, estatus').or(`recibido_por_id.eq.${user.id},cerrado_por_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(10);
-      const { data: d } = await supabase.from('devoluciones').select('id, folio, producto_nombre, created_at, estatus').or(`solicitado_por_id.eq.${user.id},cerrado_por_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(10);
+      const { data: g } = await supabase
+        .from('garantias')
+        .select('id, folio, producto_nombre, created_at, estatus')
+        .or(`recibido_por_id.eq.${user.id},recibido_de_proveedor_por_id.eq.${user.id},entregado_cliente_por_id.eq.${user.id},cerrado_por_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const { data: d } = await supabase
+        .from('devoluciones')
+        .select('id, folio, producto_nombre, created_at, estatus')
+        .or(`solicitado_por_id.eq.${user.id},entregado_por_id.eq.${user.id},recibido_de_proveedor_por_id.eq.${user.id},cerrado_por_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
       setUserHistory({ garantias: g || [], devoluciones: d || [] });
-    } catch (error) { console.error(error); } finally { setLoadingHistory(false); }
+    } catch (error) { 
+        console.error("Error al cargar historial:", error); 
+    } finally { 
+        setLoadingHistory(false); 
+    }
   };
 
   const startEditing = () => {
@@ -169,16 +186,15 @@ const AdminPanel = () => {
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-const tabBtnStyle = (tabName) => ({
+  // ESTILOS CORREGIDOS (Sin duplicados)
+  const tabBtnStyle = (tabName) => ({
     padding: '10px 20px',
     cursor: 'pointer',
-    // Eliminamos el duplicado que estaba aquí
     color: activeTab === tabName ? 'var(--color-brand-primary)' : '#64748b',
     fontWeight: activeTab === tabName ? 'bold' : 'normal',
     display: 'flex', alignItems: 'center', gap: '8px',
     background: 'none', 
-    border: 'none', // Reseteamos bordes generales
-    // Definimos el borde inferior UNA sola vez aquí:
+    border: 'none',
     borderBottom: activeTab === tabName ? '2px solid var(--color-brand-primary)' : '2px solid transparent'
   });
 
@@ -193,7 +209,6 @@ const tabBtnStyle = (tabName) => ({
             <div style={{ background: '#f1f5f9', padding: '8px', borderRadius: '8px' }}> <Users size={28} color="#475569" /> </div>
             <div> <h1 style={{ fontSize: '1.5rem' }}>Panel de Administración</h1> <p className="text-sm">Gestión del sistema.</p> </div>
           </div>
-          {/* Eliminamos el botón de aquí para bajarlo */}
       </div>
 
       {/* TABS */}
@@ -209,7 +224,7 @@ const tabBtnStyle = (tabName) => ({
       {/* === PESTAÑA USUARIOS === */}
       {activeTab === 'users' && (
         <>
-            {/* BARRA DE HERRAMIENTAS (Igual que en ProvidersTab) */}
+            {/* BARRA DE HERRAMIENTAS */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
                 <div style={{ position: 'relative', width: '300px' }}>
                     <Search size={18} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
@@ -230,7 +245,6 @@ const tabBtnStyle = (tabName) => ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
                 {/* COLUMNA IZQUIERDA: LISTA */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {/* Quitamos el card del buscador que estaba aquí */}
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
                         {filteredUsers.map((u) => (
@@ -273,7 +287,36 @@ const tabBtnStyle = (tabName) => ({
                         )}
                     </div>
                     {selectedUser && ( <div className="card"> <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}> <History size={20} color="#64748b" /> Historial Reciente </h3> 
-                            {userHistory.garantias.length === 0 && userHistory.devoluciones.length === 0 ? <div className="text-sm text-gray-400">Sin registros recientes.</div> : <div><div style={{marginBottom:'10px', fontWeight:'bold', fontSize:'0.8rem', color:'#94a3b8'}}>MOVIMIENTOS</div> <div className="text-sm">Se encontraron {userHistory.garantias.length} garantías y {userHistory.devoluciones.length} devoluciones.</div></div>}
+                            {userHistory.garantias.length === 0 && userHistory.devoluciones.length === 0 ? 
+                                <div className="text-sm text-gray-400">Sin registros recientes de participación.</div> : 
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                    <div style={{marginBottom:'5px', fontWeight:'bold', fontSize:'0.8rem', color:'#94a3b8'}}>ÚLTIMOS MOVIMIENTOS</div> 
+                                    {userHistory.garantias.map(g => (
+                                        <div key={g.id} style={{ display:'flex', justifyContent:'space-between', padding:'8px', borderBottom:'1px solid #f1f5f9', fontSize:'0.9rem' }}>
+                                            <div>
+                                                <span style={{ fontWeight:'600', color:'#334155' }}>Garantía {g.folio}</span> <br/>
+                                                <span style={{ fontSize:'0.8rem', color:'#64748b' }}>{g.producto_nombre}</span>
+                                            </div>
+                                            <div style={{ textAlign:'right' }}>
+                                                <span style={{ fontSize:'0.75rem', color:'#94a3b8' }}>{new Date(g.created_at).toLocaleDateString()}</span> <br/>
+                                                <span style={{ fontSize:'0.75rem', fontWeight:'bold', textTransform:'uppercase' }}>{g.estatus.replace(/_/g, ' ')}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {userHistory.devoluciones.map(d => (
+                                        <div key={d.id} style={{ display:'flex', justifyContent:'space-between', padding:'8px', borderBottom:'1px solid #f1f5f9', fontSize:'0.9rem' }}>
+                                            <div>
+                                                <span style={{ fontWeight:'600', color:'#0ea5e9' }}>Devolución {d.folio}</span> <br/>
+                                                <span style={{ fontSize:'0.8rem', color:'#64748b' }}>{d.producto_nombre}</span>
+                                            </div>
+                                            <div style={{ textAlign:'right' }}>
+                                                <span style={{ fontSize:'0.75rem', color:'#94a3b8' }}>{new Date(d.created_at).toLocaleDateString()}</span> <br/>
+                                                <span style={{ fontSize:'0.75rem', fontWeight:'bold', textTransform:'uppercase' }}>{d.estatus.replace(/_/g, ' ')}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            }
                     </div> )}
                 </div>
             </div>
@@ -285,7 +328,7 @@ const tabBtnStyle = (tabName) => ({
           <ProvidersTab />
       )}
 
-      {/* MODAL DE CREAR USUARIO (Se mantiene igual) */}
+      {/* MODAL DE CREAR USUARIO */}
       {showCreateModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
             <div className="card" style={{ width: '450px', position: 'relative' }}>
