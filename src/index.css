@@ -30,21 +30,63 @@
 /* --- RESET GLOBAL & SCROLL FIX --- */
 * { box-sizing: border-box; }
 
-html, body {
+html {
+  /* Forzamos al HTML a no medir más que la ventana */
+  height: 100vh; 
+  width: 100vw;
+  overflow: hidden; /* Bloquea el scroll del navegador */
+}
+
+body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%; /* Ocupa toda la pantalla siempre */
-  overflow: hidden; /* CLAVE: Prohibido hacer scroll en la ventana principal */
+  height: 100vh; /* Forzamos al body a medir lo mismo que la ventana */
+  width: 100vw;
+  overflow: hidden; /* Bloquea el scroll del navegador */
   font-family: var(--font-main);
   background-color: var(--color-canvas-bg);
   color: var(--color-text-main);
   -webkit-font-smoothing: antialiased;
 }
 
+/* IMPORTANTE: El contenedor de React también debe ser forzado */
 #root {
+  height: 100vh;
   width: 100%;
-  height: 100%; /* El contenedor de React también debe medir el 100% */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   --- LAYOUT STRUCTURE ---
+   ==========================================================================
+*/
+
+.layout-container {
+  display: flex;
+  /* Usamos flex: 1 para que ocupe todo el espacio disponible del #root */
+  flex: 1;
+  height: 100%; 
+  width: 100%;
+  overflow: hidden; /* Asegura que nada se salga de aquí */
+}
+
+.sidebar {
+  flex-shrink: 0;
+  height: 100%;
+  /* El sidebar tiene su propio scroll si es necesario, pero oculto por estética */
+  overflow-y: auto; 
+}
+
+.main-content {
+  flex: 1; 
+  height: 100%;
+  /* AQUÍ es donde debe estar el único scroll visible de la app */
+  overflow-y: auto; 
+  padding: 2rem;
+  background-color: var(--color-canvas-bg);
+  position: relative;
 }
 
 /* --- CLASES DE UTILIDAD (UI KIT) --- */
