@@ -79,7 +79,25 @@ const WarrantyDetail = () => {
         }
         if (data.estatus === 'asignar_folio_sicar') return <AssignSicarFolio id={id} table="garantias" onUpdate={fetchDetail} />;
         if (data.estatus === 'pendiente_validacion' || data.estatus === 'activo') return <VendorHandover table="garantias" id={id} onUpdate={fetchDetail} />;
-        if (data.estatus === 'con_proveedor') return <VendorHandoverSummary data={data} />;
+        
+        // --- CORRECCIÓN AQUÍ ---
+        if (data.estatus === 'con_proveedor') {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* 1. Contexto: Mostramos qué enviamos */}
+                    <VendorHandoverSummary data={data} />
+                    
+                    {/* 2. Acción: Mostramos el formulario para resolver */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b', marginBottom: '1rem', textTransform: 'uppercase' }}>
+                            Registrar Resolución
+                        </h4>
+                        <ProcessResolution table="garantias" id={id} isGarantia={true} onUpdate={fetchDetail} />
+                    </div>
+                </div>
+            );
+        }
+
         if (data.estatus === 'por_aprobar') return <AdminReview table="garantias" id={id} currentStatus="por_aprobar" onUpdate={fetchDetail} />;
         if (data.estatus === 'listo_para_entrega') return <CustomerDelivery id={id} onUpdate={fetchDetail} />;
         if (data.estatus === 'pendiente_cierre') return <AdminReview table="garantias" id={id} currentStatus="pendiente_cierre" onUpdate={fetchDetail} />;
@@ -92,7 +110,7 @@ const WarrantyDetail = () => {
         return null;
     }
 
-    // 2. MODO HISTORIAL (Sin título "Historial")
+    // 2. MODO HISTORIAL
     return (
         <div>
             {['creado', 'asignar_folio_sicar'].includes(viewStep) && data.folio_sicar && (

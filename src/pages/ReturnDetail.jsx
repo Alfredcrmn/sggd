@@ -76,9 +76,28 @@ const ReturnDetail = () => {
                 </div>
             );
         }
+
         if (data.estatus === 'asignar_folio_sicar') return <AssignSicarFolio id={id} table="devoluciones" onUpdate={fetchDetail} />;
         if (data.estatus === 'activo' || data.estatus === 'pendiente_validacion') return <VendorHandover table="devoluciones" id={id} onUpdate={fetchDetail} />;
-        if (data.estatus === 'con_proveedor') return <VendorHandoverSummary data={data} />;
+        
+        // --- CORRECCIÓN AQUÍ TAMBIÉN ---
+        if (data.estatus === 'con_proveedor') {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* Contexto */}
+                    <VendorHandoverSummary data={data} />
+                    
+                    {/* Acción */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b', marginBottom: '1rem', textTransform: 'uppercase' }}>
+                            Registrar Resolución
+                        </h4>
+                        <ProcessResolution table="devoluciones" id={id} isGarantia={false} onUpdate={fetchDetail} />
+                    </div>
+                </div>
+            );
+        }
+        
         if (data.estatus === 'pendiente_cierre') return <AdminReview table="devoluciones" id={id} currentStatus="pendiente_cierre" onUpdate={fetchDetail} />;
         if (data.estatus === 'cerrado') return (
             <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '1.5rem', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
@@ -88,7 +107,7 @@ const ReturnDetail = () => {
         );
     }
 
-    // 2. MODO HISTORIAL (Sin título "Historial")
+    // 2. MODO HISTORIAL (Igual que antes)
     return (
         <div>
             {['creado', 'asignar_folio_sicar'].includes(viewStep) && data.folio_sicar && (
@@ -129,7 +148,7 @@ const ReturnDetail = () => {
                     ) : <div className="text-sm text-gray-400 italic">Resolución pendiente...</div>}
                 </div>
             )}
-            <button onClick={() => setViewStep(data.estatus)} className="btn btn-secondary" style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center' }}>Volver a la etapa actual</button>
+            <button onClick={() => setViewStep(data.estatus)} className="btn btn-secondary" style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1', cursor: 'pointer' }}>Volver a la etapa actual</button>
         </div>
     );
   };
