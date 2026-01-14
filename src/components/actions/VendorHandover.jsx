@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../../supabase/client";
 import { useAuth } from "../../context/AuthContext";
-import { Truck, Save, Upload, AlertCircle } from "lucide-react";
+import { Truck, Save, Upload, AlertCircle, Hash } from "lucide-react"; // Agregué el icono Hash para el folio
 import QuickQRUpload from "../QuickQRUpload"; 
 
 const VendorHandover = ({ table, id, onUpdate }) => {
@@ -18,7 +18,8 @@ const VendorHandover = ({ table, id, onUpdate }) => {
   const [form, setForm] = useState({
     vendedor_nombre: "",
     vendedor_telefono: "",
-    fecha: new Date().toISOString().split('T')[0]
+    fecha: new Date().toISOString().split('T')[0],
+    folio_recoleccion: "" // 1. NUEVO CAMPO EN EL ESTADO
   });
 
   const handleSubmit = async (e) => {
@@ -46,6 +47,7 @@ const VendorHandover = ({ table, id, onUpdate }) => {
         vendedor_nombre: form.vendedor_nombre,
         vendedor_telefono: form.vendedor_telefono,
         fecha_entrega_proveedor: form.fecha,
+        folio_recoleccion_proveedor: form.folio_recoleccion, // 2. ENVIAR A LA BASE DE DATOS
         evidencia_entrega_url: finalUrl,
         entregado_por_id: user.id,
         estatus: 'con_proveedor'
@@ -66,7 +68,6 @@ const VendorHandover = ({ table, id, onUpdate }) => {
   };
 
   // --- ESTILOS VISUALES LIMPIOS ---
-  // Eliminamos className="card" para evitar el doble recuadro
   return (
     <div style={{ padding: '5px' }}> 
       
@@ -77,10 +78,26 @@ const VendorHandover = ({ table, id, onUpdate }) => {
       
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
+        {/* 3. CAMPO DE FOLIO */}
+        <div>
+            <label className="form-label" style={{display:'block', marginBottom:'5px', fontSize:'0.9rem', color:'#64748b'}}>
+                Folio de Recolección
+            </label>
+            <div style={{ position: 'relative' }}>
+                <Hash size={18} style={{ position: 'absolute', top: '12px', left: '10px', color: '#94a3b8' }} />
+                <input required type="text" className="form-input" 
+                    placeholder="Ej. RA-88420"
+                    value={form.folio_recoleccion}
+                    onChange={e => setForm({...form, folio_recoleccion: e.target.value})} 
+                    style={{width: '100%', padding: '10px', paddingLeft: '35px', borderRadius: '6px', border: '1px solid #cbd5e1'}}
+                />
+            </div>
+        </div>
+
         {/* DATOS DEL VENDEDOR */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ gridColumn: 'span 2' }}>
-                <label className="form-label" style={{display:'block', marginBottom:'5px', fontSize:'0.9rem', color:'#64748b'}}>Nombre del Vendedor / Chofer</label>
+                <label className="form-label" style={{display:'block', marginBottom:'5px', fontSize:'0.9rem', color:'#64748b'}}>Nombre del Vendedor</label>
                 <input required type="text" className="form-input" 
                     placeholder="Nombre completo"
                     value={form.vendedor_nombre}
@@ -111,7 +128,6 @@ const VendorHandover = ({ table, id, onUpdate }) => {
         <div>
             <label className="form-label" style={{ marginBottom: '8px', display: 'block', fontSize:'0.9rem', color:'#64748b' }}>Evidencia de Entrega (Foto de Firma)</label>
             
-            {/* 1. COMPONENTE QR */}
             <QuickQRUpload 
                 sessionId={sessionId} 
                 onUploadComplete={(url) => {
@@ -120,7 +136,6 @@ const VendorHandover = ({ table, id, onUpdate }) => {
                 }} 
             />
 
-            {/* 2. OPCIÓN MANUAL */}
             {!evidenceUrl && (
                 <div style={{ marginTop: '10px', textAlign: 'right' }}>
                     <input 
