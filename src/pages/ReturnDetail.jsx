@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabase/client";
+import { useAuth } from "../context/AuthContext"; 
 
 import ProcessHeader from "../components/shared/ProcessHeader";
 import EvidenceCard from "../components/shared/EvidenceCard";
@@ -12,15 +13,20 @@ import VendorHandoverSummary from "../components/summaries/VendorHandoverSummary
 import ProcessResolution from "../components/actions/ProcessResolution";
 import AdminReview from "../components/actions/AdminReview";
 
-import { Archive, Hash, CreditCard, FileText, Store, MapPin, Truck, User, Phone, Eye, FileCheck, ArrowRight, UserCheck } from "lucide-react";
+import { Archive, Hash, CreditCard, FileText, Store, MapPin, Truck, User, Phone, Eye, FileCheck, ArrowRight, UserCheck, Clock, ShieldAlert } from "lucide-react";
 
 const ReturnDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewStep, setViewStep] = useState(null);
   const [sendingToSicar, setSendingToSicar] = useState(false);
+  
+  // Estado de Seguridad
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchDetail = async () => {
     try {
@@ -33,7 +39,31 @@ const ReturnDetail = () => {
     } catch (error) { navigate("/processes"); } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchDetail(); }, [id]);
+  // Verificación de Rol
+  useEffect(() => {
+    const checkRole = async () => {
+        if (!user) return;
+
+        const { data: profile, error } = await supabase
+            .from('perfiles')
+            .select('rol')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (error || !profile) {
+            setIsAdmin(false);
+            return;
+        }
+
+        if (profile.rol && profile.rol.trim().toLowerCase() === 'admin') {
+            setIsAdmin(true);
+        } else {
+            setIsAdmin(false);
+        }
+    };
+    checkRole();
+    fetchDetail(); 
+  }, [id, user]);
 
   const sendToSicarAssignment = async () => {
     setSendingToSicar(true);
@@ -55,6 +85,22 @@ const ReturnDetail = () => {
       return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
   };
 
+  const WaitingForAdminCard = ({ title, text }) => (
+    <div style={{ textAlign: 'center', padding: '2rem', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+            <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '50%' }}>
+                <Clock size={32} color="#d97706" />
+            </div>
+        </div>
+        <h3 style={{ fontSize: '1.1rem', color: '#92400e', marginBottom: '0.5rem', fontWeight: 'bold' }}>{title}</h3>
+        <p style={{ color: '#b45309', fontSize: '0.9rem', lineHeight: '1.5' }}>{text}</p>
+        <div style={{ marginTop: '1rem', fontSize: '0.75rem', color: '#d97706', fontStyle: 'italic' }}>
+            <ShieldAlert size={12} style={{ display: 'inline', marginRight: '4px' }}/>
+            Solo administradores pueden avanzar.
+        </div>
+    </div>
+  );
+
   if (loading) return <div className="p-8 text-center">Cargando...</div>;
   if (!data) return null;
 
@@ -65,7 +111,6 @@ const ReturnDetail = () => {
   const detailValueStyle = { fontSize: '0.95rem', color: '#1e293b', fontWeight: '500' };
 
   const renderRightColumn = () => {
-    // 1. MODO EDICIÓN
     if (viewStep === data.estatus) {
         if (data.estatus === 'creado') {
              return (
@@ -80,25 +125,26 @@ const ReturnDetail = () => {
         if (data.estatus === 'asignar_folio_sicar') return <AssignSicarFolio id={id} table="devoluciones" onUpdate={fetchDetail} />;
         if (data.estatus === 'activo' || data.estatus === 'pendiente_validacion') return <VendorHandover table="devoluciones" id={id} onUpdate={fetchDetail} />;
         
-        // --- CORRECCIÓN AQUÍ TAMBIÉN ---
         if (data.estatus === 'con_proveedor') {
             return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    {/* Contexto */}
                     <VendorHandoverSummary data={data} />
-                    
-                    {/* Acción */}
                     <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
-                        <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b', marginBottom: '1rem', textTransform: 'uppercase' }}>
-                            Registrar Resolución
-                        </h4>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#1e293b', marginBottom: '1rem', textTransform: 'uppercase' }}>Registrar Resolución</h4>
                         <ProcessResolution table="devoluciones" id={id} isGarantia={false} onUpdate={fetchDetail} />
                     </div>
                 </div>
             );
         }
         
-        if (data.estatus === 'pendiente_cierre') return <AdminReview table="devoluciones" id={id} currentStatus="pendiente_cierre" onUpdate={fetchDetail} />;
+        // --- PROTECCIÓN ---
+        if (data.estatus === 'pendiente_cierre') {
+            if (!isAdmin) {
+                return <WaitingForAdminCard title="Cierre Pendiente" text="La devolución está lista para cierre. Un administrador debe validar y finalizar el proceso." />;
+            }
+            return <AdminReview table="devoluciones" id={id} currentStatus="pendiente_cierre" onUpdate={fetchDetail} />;
+        }
+        
         if (data.estatus === 'cerrado') return (
             <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '1.5rem', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
                  <div style={{ color: '#15803d', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '5px' }}>Proceso Finalizado</div>
@@ -107,7 +153,6 @@ const ReturnDetail = () => {
         );
     }
 
-    // 2. MODO HISTORIAL (Igual que antes)
     return (
         <div>
             {['creado', 'asignar_folio_sicar'].includes(viewStep) && data.folio_sicar && (
