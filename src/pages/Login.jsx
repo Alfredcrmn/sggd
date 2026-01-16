@@ -79,7 +79,7 @@ const Login = () => {
             const limite = perfil.sucursales.radio_permitido_metros || 20;
 
             // Log para ver la distancia del usuario
-            //console.log(`Distancia: ${Math.round(distancia)}m (Límite: ${limite}m)`);
+            console.log(`Distancia: ${Math.round(distancia)}m (Límite: ${limite}m)`);
 
             if (distancia <= limite) {
                 // DENTRO DEL RANGO -> ACCESO CONCEDIDO
