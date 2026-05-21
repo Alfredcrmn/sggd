@@ -13,7 +13,7 @@ const VendorHandover = ({ table, id, onUpdate }) => {
   // Opción B: Archivo manual
   const [manualFile, setManualFile] = useState(null);
 
-  const [sessionId] = useState(() => crypto.randomUUID());
+   const [sessionId] = useState(() => crypto.randomUUID());
 
   const [form, setForm] = useState({
     vendedor_nombre: "",
@@ -22,7 +22,7 @@ const VendorHandover = ({ table, id, onUpdate }) => {
     folio_recoleccion: "" // 1. NUEVO CAMPO EN EL ESTADO
   });
 
-  const handleSubmit = async (e) => {
+   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!evidenceUrl && !manualFile) {
@@ -35,8 +35,25 @@ const VendorHandover = ({ table, id, onUpdate }) => {
 
       // Subida manual si no hay QR
       if (!finalUrl && manualFile) {
-          const fileName = `firmas/${table}_${id}_${Date.now()}`;
-          const { error: upError } = await supabase.storage.from('evidencias').upload(fileName, manualFile);
+          const { data: tokenData, error } = await supabase.rpc('generate_evidencia_upload_token', {
+            p_table: table,
+            p_record_id: String(id),
+            p_session_id: sessionId,
+            p_ttl_seconds: 900
+          });
+          if (error) throw error;
+          const payload = Array.isArray(tokenData) ? tokenData[0] : tokenData;
+          const tokenToUse = payload?.token || payload?.token?.token || null;
+          const prefixToUse = payload?.object_prefix || payload?.objectPrefix || payload?.object_prefix?.object_prefix || null;
+
+          if (!tokenToUse || !prefixToUse) {
+            throw new Error("No se pudo generar el token de carga.");
+          }
+
+          const fileName = `${prefixToUse}firmas_${table}_${id}_${Date.now()}`;
+          const { error: upError } = await supabase.storage.from('evidencias').upload(fileName, manualFile, {
+            metadata: { upload_token: tokenToUse }
+          });
           if (upError) throw upError;
           
           const { data } = supabase.storage.from('evidencias').getPublicUrl(fileName);
@@ -130,6 +147,8 @@ const VendorHandover = ({ table, id, onUpdate }) => {
             
             <QuickQRUpload 
                 sessionId={sessionId} 
+                recordId={id}
+                table={table}
                 onUploadComplete={(url) => {
                     setEvidenceUrl(url);
                     setManualFile(null); 
@@ -143,7 +162,25 @@ const VendorHandover = ({ table, id, onUpdate }) => {
                         id="manual-upload" 
                         accept="image/*" 
                         style={{ display: 'none' }} 
-                        onChange={e => setManualFile(e.target.files[0])} 
+                        onChange={e => {
+                          const file = e.target.files?.[0] || null;
+                          if (!file) return setManualFile(null);
+
+                          const maxSizeBytes = 10 * 1024 * 1024;
+                          if (!file.type.startsWith('image/')) {
+                            alert('Solo se permiten imágenes.');
+                            e.target.value = '';
+                            return setManualFile(null);
+                          }
+
+                          if (file.size > maxSizeBytes) {
+                            alert('La imagen excede 10 MB.');
+                            e.target.value = '';
+                            return setManualFile(null);
+                          }
+
+                          setManualFile(file);
+                        }} 
                     />
                     <label htmlFor="manual-upload" style={{ fontSize: '0.85rem', color: '#64748b', cursor: 'pointer', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <Upload size={14}/> 

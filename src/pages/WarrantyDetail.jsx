@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { supabase } from "../supabase/client";
 import { useAuth } from "../context/AuthContext"; 
 
@@ -18,30 +18,58 @@ import { Archive, Hash, CreditCard, FileText, Store, MapPin, Truck, User, Phone,
 
 const WarrantyDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth(); 
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewStep, setViewStep] = useState(null); 
   const [sendingToSicar, setSendingToSicar] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   
   // Estado de Seguridad
   const [isAdmin, setIsAdmin] = useState(false);
+  const dataRef = useRef(data);
+  const viewStepRef = useRef(viewStep);
 
-  const fetchDetail = async () => {
+  useEffect(() => {
+    dataRef.current = data;
+    viewStepRef.current = viewStep;
+  }, [data, viewStep]);
+
+  const fetchDetail = useCallback(async (options = {}) => {
+    const isActive = options.isActive || (() => true);
+
     try {
       const { data: record, error } = await supabase
         .from('garantias')
         .select(`*, sucursales(nombre), proveedores(nombre), perfiles_inicio:recibido_por_id(nombre_completo), perfiles_prov:recibido_de_proveedor_por_id(nombre_completo), perfiles_entrega:entregado_cliente_por_id(nombre_completo)`).eq('id', id).single();
       if (error) throw error;
+      if (!isActive()) return;
+
+      const previousData = dataRef.current;
+      const previousViewStep = viewStepRef.current;
+      const wasViewingCurrentStep = !previousViewStep || !previousData || previousViewStep === previousData.estatus;
+
       setData(record);
-      setViewStep(record.estatus); 
-    } catch (error) { navigate("/processes"); } finally { setLoading(false); }
-  };
+      if (options.resetView || wasViewingCurrentStep) {
+        setViewStep(record.estatus); 
+      }
+      setErrorMessage(null);
+    } catch (fetchError) {
+      if (!isActive()) return;
+      console.error(fetchError);
+      setErrorMessage("No se pudo cargar la garantía. Intenta nuevamente.");
+    }
+
+    if (isActive()) {
+      setLoading(false);
+    }
+  }, [id]);
 
   // Verificación de Rol (Silenciosa)
   useEffect(() => {
+    let isActive = true;
+
     const checkRole = async () => {
         if (!user) return;
         
@@ -50,6 +78,8 @@ const WarrantyDetail = () => {
             .select('rol')
             .eq('id', user.id)
             .maybeSingle();
+
+        if (!isActive) return;
 
         if (error || !profile) {
             setIsAdmin(false);
@@ -64,9 +94,17 @@ const WarrantyDetail = () => {
         }
     };
     
-    checkRole();
-    fetchDetail();
-  }, [id, user]);
+    void checkRole();
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchDetail({ resetView: !viewStepRef.current, isActive: () => isActive });
+    }, 0);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [fetchDetail, user]);
 
   const sendToSicarAssignment = async () => {
     setSendingToSicar(true);
@@ -74,13 +112,16 @@ const WarrantyDetail = () => {
         const { error } = await supabase.from('garantias').update({ estatus: 'asignar_folio_sicar' }).eq('id', id);
         if (error) throw error;
         fetchDetail();
-    } catch (error) { alert("Error al avanzar el proceso."); } finally { setSendingToSicar(false); }
+    } catch {
+      alert("Error al avanzar el proceso.");
+    } finally { setSendingToSicar(false); }
   };
 
   const formatDate = (dateString) => {
       if (!dateString) return "-";
-      const date = new Date(dateString);
-      return new Date(date.valueOf() + date.getTimezoneOffset() * 60000).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+      if (!year || !month || !day) return "-";
+      return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
   const formatCurrency = (amount) => {
       const num = parseFloat(amount);
@@ -106,6 +147,17 @@ const WarrantyDetail = () => {
   );
 
   if (loading) return <div className="p-8 text-center">Cargando...</div>;
+  if (errorMessage) {
+    return (
+      <div className="container" style={{ padding: '2rem', textAlign: 'center' }}>
+        <div style={{ color: '#b91c1c', fontWeight: '600', marginBottom: '0.5rem' }}>Error al cargar</div>
+        <div style={{ color: '#64748b', marginBottom: '1rem' }}>{errorMessage}</div>
+        <button className="btn btn-secondary" onClick={() => { setLoading(true); fetchDetail({ resetView: true }); }}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
   if (!data) return null;
 
   const resData = data.datos_resolucion || {};

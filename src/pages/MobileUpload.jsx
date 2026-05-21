@@ -1,27 +1,93 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabase/client";
-import { Camera, UploadCloud, CheckCircle, Loader2 } from "lucide-react";
+import { Camera, CheckCircle, Loader2 } from "lucide-react";
+
+const getLinkValidationError = (sessionId, uploadToken, objectPrefix, expiresAt) => {
+  if (!uploadToken || !objectPrefix) {
+    return "El enlace de carga no es valido o expiro. Solicita un QR nuevo.";
+  }
+
+  if (!/^[a-f0-9]{64}$/i.test(uploadToken)) {
+    return "El enlace de carga no es valido o expiro. Solicita un QR nuevo.";
+  }
+
+  const prefixMatch = objectPrefix.match(/^(garantias|devoluciones)\/([^/]+)\/([^/]+)\/$/);
+  if (!prefixMatch) {
+    return "El enlace de carga no es valido o expiro. Solicita un QR nuevo.";
+  }
+
+  const prefixSessionId = prefixMatch[3];
+  if (prefixSessionId !== sessionId) {
+    return "El enlace de carga no coincide con esta sesion. Solicita un QR nuevo.";
+  }
+
+  if (expiresAt) {
+    const expiresAtMs = Date.parse(expiresAt);
+    if (Number.isNaN(expiresAtMs)) {
+      return "El enlace de carga no es valido o expiro. Solicita un QR nuevo.";
+    }
+
+    if (Date.now() >= expiresAtMs) {
+      return "El enlace de carga expiro. Solicita un QR nuevo.";
+    }
+  }
+
+  return null;
+};
 
 const MobileUpload = () => {
   const { id } = useParams(); // Este es el sessionId temporal
+  const [searchParams] = useSearchParams();
   const [uploading, setUploading] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+  // Compatibilidad: primero hash (#token=...), luego query (?token=...)
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const uploadToken = hashParams.get('token') || searchParams.get('token');
+  const objectPrefix = hashParams.get('prefix') || searchParams.get('prefix');
+  const expiresAt = hashParams.get('expires_at') || searchParams.get('expires_at');
+  const linkValidationError = getLinkValidationError(id, uploadToken, objectPrefix, expiresAt);
+  const isLinkReady = !linkValidationError;
+  const activeErrorMessage = errorMessage || linkValidationError;
 
   const handleFileChange = async (e) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
+    if (!isLinkReady) {
+      setErrorMessage(activeErrorMessage || "Validando enlace de carga...");
+      return;
+    }
+
     setUploading(true);
+    setErrorMessage(null);
     const file = e.target.files[0];
+
+    const maxSizeBytes = 10 * 1024 * 1024; // 10 MB
+    if (!file.type.startsWith('image/')) {
+      setUploading(false);
+      setErrorMessage("Solo se permiten archivos de imagen.");
+      return;
+    }
+
+    if (file.size > maxSizeBytes) {
+      setUploading(false);
+      setErrorMessage("La imagen excede 10 MB. Toma una foto con menor resolución.");
+      return;
+    }
+
     const fileExt = file.name.split('.').pop();
-    // Usamos el ID de la sesión para el nombre del archivo
-    const fileName = `temp_${id}_${Date.now()}.${fileExt}`;
+    const safeExt = fileExt || 'jpg';
+    const fileName = `${objectPrefix}temp_${id}_${Date.now()}.${safeExt}`;
 
     try {
       // 1. SUBIR FOTO (Sin restricciones de Auth)
       const { error: uploadError } = await supabase.storage
         .from('evidencias')
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          metadata: { upload_token: uploadToken }
+        });
 
       if (uploadError) throw uploadError;
 
@@ -48,7 +114,7 @@ const MobileUpload = () => {
 
     } catch (error) {
       console.error(error);
-      alert("Error al subir imagen: " + error.message);
+      setErrorMessage("Error al subir imagen: " + error.message);
     } finally {
       setUploading(false);
     }
@@ -73,7 +139,7 @@ const MobileUpload = () => {
           width: '100%', maxWidth: '300px', height: '250px', 
           border: '3px dashed #475569', borderRadius: '16px', 
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', 
-          color: 'white', cursor: 'pointer', background: 'rgba(255,255,255,0.05)',
+          color: 'white', cursor: isLinkReady ? 'pointer' : 'not-allowed', background: 'rgba(255,255,255,0.05)',
           transition: 'background 0.2s'
       }}>
         {uploading ? (
@@ -84,19 +150,29 @@ const MobileUpload = () => {
         ) : (
             <>
                 <Camera size={64} style={{ marginBottom: '15px', color:'#cbd5e1' }} />
-                <span style={{fontWeight:'bold', fontSize:'1.1rem'}}>Tocar para foto</span>
-                <span style={{fontSize:'0.8rem', color:'#94a3b8', marginTop:'5px'}}>Se abrirá la cámara</span>
+                <span style={{fontWeight:'bold', fontSize:'1.1rem'}}>
+                  {activeErrorMessage ? 'Enlace no disponible' : 'Tocar para foto'}
+                </span>
+                <span style={{fontSize:'0.8rem', color:'#94a3b8', marginTop:'5px'}}>
+                  {activeErrorMessage ? 'Solicita un QR o enlace nuevo' : 'Se abrirá la cámara'}
+                </span>
                 
                 <input 
                     type="file" 
                     accept="image/*" 
                     capture="environment" // Fuerza cámara trasera
                     onChange={handleFileChange} 
+                    disabled={!isLinkReady}
                     style={{ display: 'none' }} 
                 />
             </>
         )}
       </label>
+      {activeErrorMessage && (
+        <div style={{ marginTop: '1.5rem', color: '#fecaca', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '10px 14px', borderRadius: '8px', textAlign: 'center', maxWidth: '320px' }}>
+          {activeErrorMessage}
+        </div>
+      )}
     </div>
   );
 };
