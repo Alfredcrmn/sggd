@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Individual files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+audit-report.md
