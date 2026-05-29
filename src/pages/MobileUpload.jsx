@@ -79,7 +79,7 @@ const MobileUpload = () => {
 
     const fileExt = file.name.split('.').pop();
     const safeExt = fileExt || 'jpg';
-    const fileName = `${objectPrefix}temp_${id}_${Date.now()}.${safeExt}`;
+    const fileName = `${objectPrefix}${uploadToken}/temp_${id}_${Date.now()}.${safeExt}`;
 
     try {
       // 1. SUBIR FOTO (Sin restricciones de Auth)

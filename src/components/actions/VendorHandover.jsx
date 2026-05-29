@@ -50,7 +50,7 @@ const VendorHandover = ({ table, id, onUpdate }) => {
             throw new Error("No se pudo generar el token de carga.");
           }
 
-          const fileName = `${prefixToUse}firmas_${table}_${id}_${Date.now()}`;
+          const fileName = `${prefixToUse}${tokenToUse}/firmas_${table}_${id}_${Date.now()}`;
           const { error: upError } = await supabase.storage.from('evidencias').upload(fileName, manualFile, {
             metadata: { upload_token: tokenToUse }
           });
