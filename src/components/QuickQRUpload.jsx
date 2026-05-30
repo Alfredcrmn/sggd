@@ -35,7 +35,8 @@ const QuickQRUpload = ({ sessionId, onUploadComplete, recordId, table }) => {
       setTokenExpiresAt(payload?.expires_at || payload?.expiresAt || payload?.expires_at?.expires_at || null);
     } catch (error) {
       console.error(error);
-      setTokenError("No se pudo generar el token de carga. Intenta nuevamente.");
+      const detail = error?.message ? ` Detalle: ${error.message}` : "";
+      setTokenError(`No se pudo generar el token de carga.${detail}`);
       setToken(null);
       setTokenPrefix(null);
       setTokenExpiresAt(null);
