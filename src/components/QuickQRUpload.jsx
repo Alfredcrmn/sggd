@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase/client";
+import { getEvidenceUploadToken } from "../utils/evidenceUploadToken";
 import { QRCodeSVG } from "qrcode.react"; // OJO: Cambié a QRCodeSVG porque es más ligero, pero si tienes QRCodeCanvas está bien.
 
 const QuickQRUpload = ({ sessionId, onUploadComplete, recordId, table }) => {
@@ -20,19 +21,16 @@ const QuickQRUpload = ({ sessionId, onUploadComplete, recordId, table }) => {
     setTokenError(null);
 
     try {
-      const { data, error } = await supabase.rpc('generate_evidencia_upload_token', {
-        p_table: table,
-        p_record_id: String(recordId),
-        p_session_id: sessionId,
-        p_ttl_seconds: 900
+      const payload = await getEvidenceUploadToken({
+        table,
+        recordId,
+        sessionId,
+        ttlSeconds: 900
       });
 
-      if (error) throw error;
-
-      const payload = Array.isArray(data) ? data[0] : data;
-      setToken(payload?.token || payload?.token?.token || null);
-      setTokenPrefix(payload?.object_prefix || payload?.objectPrefix || payload?.object_prefix?.object_prefix || null);
-      setTokenExpiresAt(payload?.expires_at || payload?.expiresAt || payload?.expires_at?.expires_at || null);
+      setToken(payload.token);
+      setTokenPrefix(payload.objectPrefix);
+      setTokenExpiresAt(payload.expiresAt);
     } catch (error) {
       console.error(error);
       const detail = error?.message ? ` Detalle: ${error.message}` : "";

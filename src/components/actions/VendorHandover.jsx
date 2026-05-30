@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../../supabase/client";
 import { useAuth } from "../../context/AuthContext";
+import { getEvidenceUploadToken } from "../../utils/evidenceUploadToken";
 import { Truck, Save, Upload, AlertCircle, Hash } from "lucide-react"; // Agregué el icono Hash para el folio
 import QuickQRUpload from "../QuickQRUpload"; 
 
@@ -35,20 +36,14 @@ const VendorHandover = ({ table, id, onUpdate }) => {
 
       // Subida manual si no hay QR
       if (!finalUrl && manualFile) {
-          const { data: tokenData, error } = await supabase.rpc('generate_evidencia_upload_token', {
-            p_table: table,
-            p_record_id: String(id),
-            p_session_id: sessionId,
-            p_ttl_seconds: 900
+          const tokenData = await getEvidenceUploadToken({
+            table,
+            recordId: id,
+            sessionId,
+            ttlSeconds: 900
           });
-          if (error) throw error;
-          const payload = Array.isArray(tokenData) ? tokenData[0] : tokenData;
-          const tokenToUse = payload?.token || payload?.token?.token || null;
-          const prefixToUse = payload?.object_prefix || payload?.objectPrefix || payload?.object_prefix?.object_prefix || null;
-
-          if (!tokenToUse || !prefixToUse) {
-            throw new Error("No se pudo generar el token de carga.");
-          }
+          const tokenToUse = tokenData.token;
+          const prefixToUse = tokenData.objectPrefix;
 
           const fileName = `${prefixToUse}${tokenToUse}/firmas_${table}_${id}_${Date.now()}`;
           const { error: upError } = await supabase.storage.from('evidencias').upload(fileName, manualFile, {
